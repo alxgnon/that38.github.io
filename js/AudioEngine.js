@@ -31,22 +31,9 @@ export class AudioEngine {
         this.currentBPM = 120;
         
         // Default pipi values for instruments
-        // Based on organya-js: pipi=0 means infinite loop, pipi=1 means finite loops
-        // These are typical settings, actual songs may override per track
-        this.defaultPipi = new Map([
-            // Finite loop instruments (pipi = 1/true) - typically percussive sounds
-            ['ORG_M00', true],
-            ['ORG_M01', true],
-            ['ORG_M02', true],
-            ['ORG_M03', true],
-            ['ORG_M04', true],
-            ['ORG_M05', true],
-            ['ORG_M06', true],
-            ['ORG_M07', true],
-            ['ORG_M08', true],
-            ['ORG_M09', true],
-            // Most other instruments loop infinitely by default (pipi = 0/false)
-        ]);
+        // pipi=0 (false) means infinite loop, pipi=1 (true) means finite loops
+        // Most instruments default to infinite loop
+        this.defaultPipi = new Map();
     }
 
     /**
@@ -190,7 +177,6 @@ export class AudioEngine {
                             channelData[i] = this.wavetable[256 * waveIndex + i] / 128;
                         }
                         
-                        console.log(`Created melodic buffer for ${sampleName}, first few samples:`, channelData.slice(0, 10));
                         
                         this.loadedSamples.set(sampleName, audioBuffer);
                         return audioBuffer;
@@ -275,33 +261,21 @@ export class AudioEngine {
         const orgVol = velocity * ORG_VELOCITY_SCALE;
         const authenticVolume = Math.pow(10, ((orgVol - 255) * 8) / 2000);
         
-        console.log(`Playing ${sampleName}: isDrum=${isDrum}, velocity=${velocity}, volume=${authenticVolume}, pipi=${pipi}`);
         
         if (isDrum) {
             source.loop = false;
             gain.gain.setValueAtTime(authenticVolume, startTime);
         } else {
             // pipi affects looping behavior:
-            // Based on organya-js implementation:
-            // pipi=0: loops infinitely
-            // pipi!=0: loops (octave + 1) * 4 times
-            // Use default pipi value for instrument if not specified
-            const actualPipi = pipi !== null ? pipi : (this.defaultPipi.get(sampleName) ?? true);
+            // pipi=false (0 in file): loops infinitely
+            // pipi=true (1 in file): loops finite times based on octave
+            // Default to infinite loop if not specified
+            const actualPipi = pipi !== null ? pipi : false;
             
-            if (actualPipi === false || actualPipi === 0) {
-                // Infinite loop
-                source.loop = true;
-                console.log(`Melodic instrument ${sampleName}: infinite loop (pipi=0)`);
-            } else {
-                // Calculate number of loops based on octave
-                const octave = Math.floor(keyNumber / NOTES_PER_OCTAVE);
-                const numLoops = (octave + 1) * 4;
-                
-                // For now, we'll loop and let the note duration control the length
-                // In the future, we could implement finite looping
-                source.loop = true;
-                console.log(`Melodic instrument ${sampleName}: should loop ${numLoops} times (pipi=1), using infinite loop for now`);
-            }
+            // Both pipi values result in looping - the difference is duration
+            // pipi=false: loop until note ends
+            // pipi=true: should loop (octave+1)*4 times, but we'll let note duration control it
+            source.loop = true;
             
             // Simple attack to prevent clicks
             gain.gain.setValueAtTime(0, startTime);
@@ -310,7 +284,6 @@ export class AudioEngine {
         
         // Start playback at scheduled time
         source.start(startTime);
-        console.log(`Started source at time ${startTime}, current time: ${this.audioContext.currentTime}`);
         
         // Schedule stop if duration provided
         if (duration > 0) {

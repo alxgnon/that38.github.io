@@ -258,20 +258,10 @@ export class AudioEngine {
         } else {
             source.loop = true;
             
-            // Organya-style envelope - volume drops after first beat
-            // Start at full volume immediately
-            gain.gain.setValueAtTime(authenticVolume, startTime);
-            
-            // Calculate beat duration
-            const beatDuration = 60 / this.currentBPM;
-            
-            // After first beat, drop to sustain level
-            if (duration > beatDuration) {
-                // Hold full volume for exactly one beat
-                gain.gain.setValueAtTime(authenticVolume, startTime + beatDuration);
-                // Then immediately drop to 60% (trying a different sustain level)
-                gain.gain.setValueAtTime(authenticVolume * 0.6, startTime + beatDuration + 0.001);
-            }
+            // Use the volume directly from the ORG file
+            // with just a tiny attack to prevent clicks
+            gain.gain.setValueAtTime(0, startTime);
+            gain.gain.linearRampToValueAtTime(authenticVolume, startTime + 0.002);
         }
         
         // Start playback at scheduled time

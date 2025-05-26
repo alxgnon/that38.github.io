@@ -1,0 +1,3418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>That 72edo Piano Roll</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+            background: #1a1a1a;
+            color: #fff;
+            overflow: hidden;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        #container {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        #canvas-container {
+            position: relative;
+            border: none;
+            overflow: hidden;
+            background: #222;
+            flex: 1;
+        }
+        
+        canvas {
+            display: block;
+            cursor: crosshair;
+        }
+        
+        #controls {
+            padding: 10px;
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            background: #333;
+            border-bottom: 1px solid #555;
+            align-items: center;
+        }
+        
+        button {
+            padding: 10px 20px;
+            background: #333;
+            color: #fff;
+            border: 1px solid #555;
+            cursor: pointer;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        button:hover {
+            background: #444;
+        }
+        
+        button:active {
+            background: #555;
+        }
+        
+        button.active {
+            background: #4a9eff;
+            border-color: #357abd;
+        }
+        
+        button svg {
+            pointer-events: none;
+        }
+        
+        h1 {
+            margin: 0;
+            font-size: 16px;
+            padding-right: 20px;
+        }
+        
+        input[type="range"] {
+            width: 200px;
+        }
+        
+        label {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        #menubar {
+            background: #2a2a2a;
+            border-bottom: 1px solid #444;
+            display: flex;
+            user-select: none;
+            font-size: 13px;
+            height: 24px;
+            align-items: center;
+        }
+        
+        .menu-item {
+            position: relative;
+            padding: 0 12px;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+        }
+        
+        .menu-item:hover {
+            background: #444;
+        }
+        
+        .menu-item.active {
+            background: #444;
+        }
+        
+        .menu-dropdown {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            background: #2a2a2a;
+            border: 1px solid #444;
+            border-top: none;
+            min-width: 200px;
+            display: none;
+            box-shadow: 2px 2px 8px rgba(0, 0, 0, 0.3);
+            z-index: 1000;
+        }
+        
+        .menu-item.active .menu-dropdown {
+            display: block;
+        }
+        
+        .menu-option {
+            padding: 6px 20px;
+            cursor: default;
+            position: relative;
+        }
+        
+        .menu-option:hover:not(.disabled) {
+            background: #444;
+        }
+        
+        .menu-option.disabled {
+            color: #666;
+            cursor: not-allowed;
+        }
+        
+        .menu-separator {
+            height: 1px;
+            background: #444;
+            margin: 4px 0;
+        }
+        
+        .menu-checkbox {
+            padding-left: 30px;
+        }
+        
+        .menu-check {
+            position: absolute;
+            left: 8px;
+            opacity: 0;
+        }
+        
+        .menu-checkbox.checked .menu-check {
+            opacity: 1;
+        }
+        
+        .menu-submenu {
+            position: absolute;
+            left: 100%;
+            top: 0;
+            background: #2a2a2a;
+            border: 1px solid #444;
+            min-width: 200px;
+            display: none;
+            box-shadow: 2px 2px 8px rgba(0, 0, 0, 0.3);
+            z-index: 1001;
+        }
+        
+        .menu-option.has-submenu {
+            padding-right: 30px;
+        }
+        
+        .menu-option.has-submenu:hover .menu-submenu {
+            display: block;
+        }
+        
+        .submenu-arrow {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 10px;
+            color: #999;
+        }
+        
+        .menu-shortcut {
+            float: right;
+            color: #888;
+            margin-left: 20px;
+        }
+        
+        #pan-bar {
+            background: #333;
+            border-top: 1px solid #555;
+            height: 60px;
+            position: relative;
+        }
+        
+        #pan-container {
+            width: 100%;
+            height: 100%;
+            background: #222;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        #panCanvas {
+            display: block;
+            cursor: pointer;
+        }
+        
+        #velocity-bar {
+            background: #333;
+            border-top: 1px solid #555;
+            height: 60px;
+            position: relative;
+        }
+        
+        #velocity-container {
+            width: 100%;
+            height: 100%;
+            background: #222;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        #velocityCanvas {
+            display: block;
+            cursor: pointer;
+        }
+        
+        /* Style for loop range inputs */
+        .loop-range-container input[type="number"] {
+            outline: none;
+            padding: 2px 4px;
+        }
+        
+        .loop-range-container input[type="number"]:focus {
+            background: #1a1a1a !important;
+            border-radius: 2px;
+        }
+        
+        /* Hide spin buttons for a cleaner look */
+        .loop-range-container input[type="number"]::-webkit-outer-spin-button,
+        .loop-range-container input[type="number"]::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        
+        .loop-range-container input[type="number"] {
+            -moz-appearance: textfield;
+        }
+        
+        /* Hover effect for loop container */
+        .loop-range-container:hover {
+            background: #2f2f2f !important;
+            border-color: #555 !important;
+        }
+    </style>
+</head>
+<body>
+    <div id="menubar">
+        <div class="menu-item">
+            <span>File</span>
+            <div class="menu-dropdown">
+                <div class="menu-option" id="menu-new">New</div>
+                <div class="menu-option disabled" id="menu-open">Open...</div>
+                <div class="menu-option disabled" id="menu-save">Save</div>
+                <div class="menu-option disabled" id="menu-save-as">Save As...</div>
+                <div class="menu-separator"></div>
+                <div class="menu-option" id="menu-import-org">Import Org Maker (.org)...</div>
+                <div class="menu-option disabled" id="menu-import-midi">Import MIDI (.mid)...</div>
+                <div class="menu-separator"></div>
+                <div class="menu-option has-submenu">
+                    <span>Sample Songs</span>
+                    <span class="submenu-arrow">▶</span>
+                    <div class="menu-submenu">
+                        <div class="menu-option" data-org="songs/Pixel/wanpaku.org">Wanpaku</div>
+                        <div class="menu-option" data-org="songs/Pixel/all/Running Hell.org">Running Hell</div>
+                        <div class="menu-option" data-org="songs/Pixel/maimai.org">Mai Mai</div>
+                        <div class="menu-option" data-org="songs/Pixel/snowfalling.org">Snow Falling</div>
+                        <div class="menu-option" data-org="songs/Pixel/town0.org">Town</div>
+                        <div class="menu-option" data-org="songs/Pixel/happy00.org">Happy</div>
+                        <div class="menu-separator"></div>
+                        <div class="menu-option has-submenu">
+                            <span>More Songs</span>
+                            <span class="submenu-arrow">▶</span>
+                            <div class="menu-submenu">
+                                <div class="menu-option" data-org="songs/Pixel/all/">All Cave Story Songs...</div>
+                                <div class="menu-option" data-org="songs/Pixel/allbeta/">Beta Songs...</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="menu-separator"></div>
+                <div class="menu-option disabled" id="menu-export">Export Audio...</div>
+                <div class="menu-separator"></div>
+                <div class="menu-option disabled" id="menu-exit">Exit</div>
+            </div>
+        </div>
+        <div class="menu-item">
+            <span>Edit</span>
+            <div class="menu-dropdown">
+                <div class="menu-option disabled" id="menu-undo">Undo</div>
+                <div class="menu-option disabled" id="menu-redo">Redo</div>
+                <div class="menu-separator"></div>
+                <div class="menu-option" id="menu-cut">Cut</div>
+                <div class="menu-option" id="menu-copy">Copy</div>
+                <div class="menu-option" id="menu-paste">Paste</div>
+                <div class="menu-option" id="menu-delete">Delete</div>
+                <div class="menu-separator"></div>
+                <div class="menu-option" id="menu-select-all">Select All</div>
+            </div>
+        </div>
+        <div class="menu-item">
+            <span>View</span>
+            <div class="menu-dropdown">
+                <div class="menu-option disabled" id="menu-zoom-in">Zoom In</div>
+                <div class="menu-option disabled" id="menu-zoom-out">Zoom Out</div>
+                <div class="menu-option disabled" id="menu-zoom-reset">Reset Zoom</div>
+                <div class="menu-separator"></div>
+                <div class="menu-option menu-checkbox" id="menu-grid-snap">
+                    <span class="menu-check">✓</span>Grid Snap
+                </div>
+                <div class="menu-option menu-checkbox" id="menu-show-fps">
+                    <span class="menu-check">✓</span>Show FPS
+                </div>
+                <div class="menu-option menu-checkbox" id="menu-follow-mode">
+                    <span class="menu-check">✓</span>Follow Playhead
+                </div>
+            </div>
+        </div>
+        <div class="menu-item">
+            <span>Tools</span>
+            <div class="menu-dropdown">
+                <div class="menu-option" id="menu-clear-all">Clear All Notes</div>
+                <div class="menu-option disabled" id="menu-transpose">Transpose...</div>
+                <div class="menu-option disabled" id="menu-quantize">Quantize</div>
+            </div>
+        </div>
+        <div class="menu-item">
+            <span>Help</span>
+            <div class="menu-dropdown">
+                <div class="menu-option" id="menu-shortcuts">Keyboard Shortcuts</div>
+                <div class="menu-option" id="menu-about">About</div>
+            </div>
+        </div>
+    </div>
+    <div id="container">
+        <div id="controls">
+            <h1>That 72edo Piano Roll</h1>
+            <button id="playBtn" title="Play/Pause">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                    <path id="playIcon" d="M4 2 L4 14 L13 8 Z"/>
+                    <path id="pauseIcon" d="M4 2 L4 14 L6 14 L6 2 Z M10 2 L10 14 L12 14 L12 2 Z" style="display: none;"/>
+                </svg>
+            </button>
+            <button id="stopBtn" title="Stop">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                    <rect x="3" y="3" width="10" height="10"/>
+                </svg>
+            </button>
+            <label>
+                Volume: <input type="range" id="volumeSlider" min="0" max="100" step="1" value="30">
+            </label>
+            <label>
+                Instrument: <select id="waveformSelect">
+                    <!-- Options will be populated dynamically -->
+                </select>
+                <span id="instrumentColorIndicator" style="display: inline-block; width: 20px; height: 20px; border: 2px solid #555; border-radius: 3px; margin-left: 10px; vertical-align: middle;"></span>
+            </label>
+            <div style="display: flex; align-items: center; gap: 10px; margin-left: 20px; padding: 0 15px; border-left: 1px solid #555;">
+                <button id="loopBtn" title="Toggle Loop">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                        <path d="M4 4v3h8V4l3 4-3 4V9H3V4h1zm8 8v-3H4v3l-3-4 3-4v3h9v5h-1z"/>
+                    </svg>
+                </button>
+                <div class="loop-range-container" style="display: flex; align-items: center; gap: 8px; background: #2a2a2a; padding: 5px 10px; border-radius: 4px; border: 1px solid #444;">
+                    <span style="color: #888; font-size: 12px;">A</span>
+                    <input type="number" id="loopStartInput" min="1" max="16" value="1" style="width: 35px; background: transparent; border: none; color: #fff; text-align: center; font-size: 13px;">
+                    <span style="color: #666;">–</span>
+                    <span style="color: #888; font-size: 12px;">B</span>
+                    <input type="number" id="loopEndInput" min="1" max="16" value="5" style="width: 35px; background: transparent; border: none; color: #fff; text-align: center; font-size: 13px;">
+                </div>
+            </div>
+        </div>
+        <div id="canvas-container">
+            <canvas id="pianoRoll"></canvas>
+        </div>
+        <div id="pan-bar">
+            <div id="pan-container">
+                <canvas id="panCanvas"></canvas>
+            </div>
+        </div>
+        <div id="velocity-bar">
+            <div id="velocity-container">
+                <canvas id="velocityCanvas"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        class PianoRoll {
+            constructor(canvas) {
+                this.canvas = canvas;
+                this.ctx = canvas.getContext('2d', { alpha: false });
+                
+                // Audio setup
+                this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                this.masterGain = this.audioContext.createGain();
+                this.masterGain.gain.value = 0.3;
+                this.masterGain.connect(this.audioContext.destination);
+                this.activeNotes = new Map(); // Track playing notes
+                this.baseFrequency = 440; // A4 in Hz (samples are tuned to A4)
+                
+                // Sample management
+                this.samples = new Map(); // Store loaded audio buffers
+                this.currentSample = 'ORG_M00'; // Default sample
+                this.sampleList = []; // List of available samples
+                this.loadedSamples = new Map(); // Cache of loaded buffers
+                this.wavetable = null; // Wavetable data
+                this.drums = []; // Drum information
+                
+                // Define instrument colors with a palette
+                this.instrumentColorPalette = [
+                    { note: '#ff6b6b', border: '#cc5555' }, // Red
+                    { note: '#4ecdc4', border: '#3ba89f' }, // Teal
+                    { note: '#ffe66d', border: '#ccb755' }, // Yellow
+                    { note: '#a8e6cf', border: '#86b9a6' }, // Mint
+                    { note: '#ff8b94', border: '#cc6f76' }, // Pink
+                    { note: '#c7ceea', border: '#9fa5bb' }, // Lavender
+                    { note: '#ffaaa5', border: '#cc8884' }, // Coral
+                    { note: '#88d8b0', border: '#6dac8d' }, // Seafoam
+                    { note: '#fdcb6e', border: '#caa258' }, // Orange
+                    { note: '#74b9ff', border: '#5d94cc' }, // Sky blue
+                    { note: '#a29bfe', border: '#827ccb' }, // Purple
+                    { note: '#fab1a0', border: '#c88e80' }, // Peach
+                    { note: '#55a3ff', border: '#4482cc' }, // Blue
+                    { note: '#fd79a8', border: '#ca6186' }, // Rose
+                    { note: '#6c5ce7', border: '#564ab9' }, // Violet
+                    { note: '#00b894', border: '#009376' }  // Emerald
+                ];
+                
+                // Map to store instrument colors
+                this.instrumentColors = new Map();
+                this.instrumentColorIndex = 0;
+                
+                // Dimensions
+                this.pianoKeyWidth = 60;
+                this.noteHeight = 3; // Slightly taller notes
+                this.gridWidth = 40;
+                this.numOctaves = 8; // More octaves (8 octaves = 576 notes)
+                this.notesPerOctave = 72; // 72 EDO
+                this.notesPerSemitone = 6; // 6 microtonal divisions per semitone
+                this.numKeys = this.numOctaves * this.notesPerOctave;
+                this.totalMeasures = 128; // Total measures available (increased for longer songs)
+                this.beatsPerMeasure = 4; // 4/4 time
+                this.totalWidth = this.pianoKeyWidth + (this.totalMeasures * this.beatsPerMeasure * this.gridWidth);
+                
+                // State
+                this.notes = [];
+                this.scrollX = 0;
+                this.scrollY = 0;
+                this.isPlaying = false;
+                this.isPaused = false;
+                this.pausedElapsed = 0;
+                this.playheadPos = 0;
+                this.currentMeasure = 0;
+                this.measureStartTime = 0;
+                this.gridSnap = true;
+                this.currentVelocity = 100; // Default velocity for new notes
+                this.clipboard = []; // For copy/paste functionality
+                
+                // Tempo settings (defaults to 120 BPM)
+                this.currentBPM = 120;
+                this.beatDuration = 500; // ms per beat
+                this.measureDuration = 2000; // ms per measure
+                
+                // Performance optimization: pre-computed note groups
+                this.notesByMeasure = new Map(); // Cache notes by measure
+                this.adjacentNoteCache = new Map(); // Cache adjacent note lookups
+                this.needsNoteGrouping = true; // Flag to rebuild note groups
+                
+                // Loop state
+                this.loopEnabled = false;
+                this.loopStart = 0; // Measure number
+                this.loopEnd = 4; // Measure number
+                
+                // Interaction
+                this.isDragging = false;
+                this.isResizing = false;
+                this.isCreatingNote = false;
+                this.isSelecting = false;
+                this.isDeleteSelecting = false;
+                this.dragNote = null;
+                this.dragStartX = 0;
+                this.dragStartY = 0;
+                this.createStartX = 0;
+                this.mouseX = 0;
+                this.mouseY = 0;
+                this.hoveredRow = -1;
+                this.resizeHandle = 8; // Pixels from edge to detect resize
+                
+                // Selection
+                this.selectedNotes = new Set();
+                this.selectionBox = null;
+                this.draggingSelection = false;
+                this.resizingSelection = false;
+                this.originalPositions = null;
+                this.originalWidths = null;
+                this.shiftKeyHeld = false;
+                
+                // Grid subdivision for finer snapping
+                this.gridSubdivisions = 4; // Each beat divided into 4 parts (16th notes)
+                
+                // Piano glissando
+                this.isGlissando = false;
+                this.lastGlissandoKey = -1;
+                this.currentGlissandoNote = null;
+                this.currentGlissandoKey = null;
+                this.pressedKeys = new Set();
+                
+                // Performance
+                this.lastFrameTime = 0;
+                this.frameCount = 0;
+                this.fps = 0;
+                this.dirty = true;
+                this.visibleNotes = [];
+                
+                // Colors
+                this.colors = {
+                    background: '#222',
+                    whiteKey: '#3a3a3a',
+                    whiteKeyHighlight: '#4a4a4a',
+                    blackKey: '#1a1a1a',
+                    blackKeyHighlight: '#2a2a2a',
+                    keyBorder: '#111',
+                    keyShadow: 'rgba(0, 0, 0, 0.5)',
+                    grid: '#2a2a2a',
+                    note: '#4a9eff',
+                    noteActive: '#6ab7ff',
+                    noteBorder: '#357abd',
+                    playhead: '#ff4444',
+                    text: '#888'
+                };
+                
+                // UI settings
+                this.showFPS = true;
+                this.followMode = true; // Auto-scroll to follow playhead
+                
+                this.init();
+            }
+            
+            async init() {
+                this.resize();
+                this.setupEventListeners();
+                await this.initializeSamples();
+                this.dirty = true;
+                this.animate();
+            }
+            
+            // Get color for an instrument, assigning new color if needed
+            getInstrumentColor(instrumentName) {
+                if (!this.instrumentColors.has(instrumentName)) {
+                    // Assign next color from palette
+                    const color = this.instrumentColorPalette[this.instrumentColorIndex % this.instrumentColorPalette.length];
+                    this.instrumentColors.set(instrumentName, color);
+                    this.instrumentColorIndex++;
+                }
+                return this.instrumentColors.get(instrumentName);
+            }
+            
+            async loadWavetable() {
+                try {
+                    const response = await fetch('wavetable.bin');
+                    const buffer = await response.arrayBuffer();
+                    const view = new DataView(buffer);
+                    this.wavetable = new Int8Array(buffer);
+                    
+                    // Parse drum data after the waves (100 waves * 256 samples = 25600 bytes)
+                    this.drums = [];
+                    for (let i = 256 * 100; i < this.wavetable.length - 4; i++) {
+                        if (view.getUint32(i, true) === 0x45564157) { // 'WAVE'
+                            i += 4;
+                            const riffId = view.getUint32(i, true); i += 4;
+                            const riffLen = view.getUint32(i, true); i += 4;
+                            if (riffId !== 0x20746d66) { // 'fmt '
+                                console.error('Invalid RIFF chunk ID');
+                                continue;
+                            }
+                            
+                            const startPos = i;
+                            const aFormat = view.getUint16(i, true); i += 2;
+                            if (aFormat !== 1) {
+                                console.error('Invalid audio format');
+                                i = startPos + riffLen;
+                                continue;
+                            }
+                            
+                            const channels = view.getUint16(i, true); i += 2;
+                            if (channels !== 1) {
+                                console.error('Only 1 channel files are supported');
+                                i = startPos + riffLen;
+                                continue;
+                            }
+                            
+                            const sampleRate = view.getUint32(i, true); i += 4;
+                            i += 6; // Skip bytes per second and block align
+                            const bits = view.getUint16(i, true); i += 2;
+                            
+                            // Skip to data chunk
+                            while (i < this.wavetable.length - 8) {
+                                const chunkId = view.getUint32(i, true); i += 4;
+                                const chunkSize = view.getUint32(i, true); i += 4;
+                                if (chunkId === 0x61746164) { // 'data'
+                                    this.drums.push({
+                                        filePos: i,
+                                        samples: chunkSize / (bits / 8),
+                                        bits: bits,
+                                        sampleRate: sampleRate
+                                    });
+                                    break;
+                                }
+                                i += chunkSize;
+                            }
+                            
+                            i = startPos + riffLen + 8; // Move to next potential WAVE
+                        }
+                    }
+                    
+                    console.log(`Loaded wavetable with 100 waves and ${this.drums.length} drums`);
+                    console.log('Wavetable mode enabled - using wavetable.bin instead of WAV files');
+                    return true;
+                } catch (error) {
+                    console.error('Failed to load wavetable:', error);
+                    return false;
+                }
+            }
+            
+            async initializeSamples() {
+                // Try to load wavetable first
+                const wavetableLoaded = await this.loadWavetable();
+                
+                let drumSamples = [];
+                let melodicSamples = [];
+                
+                if (wavetableLoaded) {
+                    // Use wavetable-based samples
+                    for (let i = 0; i < this.drums.length && i < 6; i++) {
+                        drumSamples.push(`ORG_D${i.toString().padStart(2, '0')}`);
+                    }
+                    
+                    for (let i = 0; i <= 99; i++) {
+                        melodicSamples.push(`ORG_M${i.toString().padStart(2, '0')}`);
+                    }
+                } else {
+                    // Fallback to original WAV files
+                    drumSamples = ['ORG_D00', 'ORG_D01', 'ORG_D02', 'ORG_D03', 'ORG_D04', 'ORG_D05'];
+                    for (let i = 0; i <= 99; i++) {
+                        melodicSamples.push(`ORG_M${i.toString().padStart(2, '0')}`);
+                    }
+                }
+                
+                this.sampleList = [...drumSamples, ...melodicSamples];
+                
+                // Update the select element
+                const select = document.getElementById('waveformSelect');
+                select.innerHTML = '';
+                
+                // Add drum samples group
+                const drumGroup = document.createElement('optgroup');
+                drumGroup.label = 'Drums (Pitched One-shots)';
+                drumSamples.forEach(sample => {
+                    const option = document.createElement('option');
+                    option.value = sample;
+                    option.textContent = sample.replace('ORG_', '');
+                    drumGroup.appendChild(option);
+                });
+                select.appendChild(drumGroup);
+                
+                // Add melodic samples group
+                const melodicGroup = document.createElement('optgroup');
+                melodicGroup.label = 'Melodic (Looped Waveforms)';
+                melodicSamples.forEach(sample => {
+                    const option = document.createElement('option');
+                    option.value = sample;
+                    option.textContent = sample.replace('ORG_', '');
+                    melodicGroup.appendChild(option);
+                });
+                select.appendChild(melodicGroup);
+                
+                // Load the default sample
+                await this.loadSample(this.currentSample);
+                select.value = this.currentSample;
+            }
+            
+            async loadSample(sampleName) {
+                if (this.loadedSamples.has(sampleName)) {
+                    return this.loadedSamples.get(sampleName);
+                }
+                
+                // If wavetable is loaded, generate buffer from it
+                if (this.wavetable) {
+                    try {
+                        if (sampleName.startsWith('ORG_D')) {
+                            // Handle drums
+                            const drumIndex = parseInt(sampleName.substring(5));
+                            if (drumIndex < this.drums.length) {
+                                const drum = this.drums[drumIndex];
+                                const audioBuffer = this.audioContext.createBuffer(1, drum.samples, drum.sampleRate || 22050);
+                                const channelData = audioBuffer.getChannelData(0);
+                                
+                                for (let i = 0; i < drum.samples; i++) {
+                                    if (drum.bits === 8) {
+                                        // 8-bit unsigned to float
+                                        channelData[i] = ((this.wavetable[drum.filePos + i] & 0xff) - 0x80) / 128;
+                                    } else if (drum.bits === 16) {
+                                        // 16-bit signed to float (little-endian)
+                                        const low = this.wavetable[drum.filePos + i * 2] & 0xff;
+                                        const high = this.wavetable[drum.filePos + i * 2 + 1];
+                                        const sample = (high << 8) | low;
+                                        // Convert to signed
+                                        const signed = sample > 32767 ? sample - 65536 : sample;
+                                        channelData[i] = signed / 32768;
+                                    }
+                                }
+                                
+                                this.loadedSamples.set(sampleName, audioBuffer);
+                                return audioBuffer;
+                            }
+                        } else if (sampleName.startsWith('ORG_M')) {
+                            // Handle melodic waves
+                            const waveIndex = parseInt(sampleName.substring(5));
+                            if (waveIndex <= 99) {
+                                // Create a looped buffer from the 256-sample wave
+                                const audioBuffer = this.audioContext.createBuffer(1, 256, this.audioContext.sampleRate);
+                                const channelData = audioBuffer.getChannelData(0);
+                                
+                                for (let i = 0; i < 256; i++) {
+                                    // Convert signed 8-bit to float
+                                    channelData[i] = this.wavetable[256 * waveIndex + i] / 128;
+                                }
+                                
+                                this.loadedSamples.set(sampleName, audioBuffer);
+                                return audioBuffer;
+                            }
+                        }
+                    } catch (error) {
+                        console.error(`Failed to generate sample ${sampleName} from wavetable:`, error);
+                    }
+                }
+                
+                // Fallback to loading WAV files
+                try {
+                    const response = await fetch(`samples/${sampleName}.wav`);
+                    const arrayBuffer = await response.arrayBuffer();
+                    const audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
+                    
+                    this.loadedSamples.set(sampleName, audioBuffer);
+                    return audioBuffer;
+                } catch (error) {
+                    console.error(`Failed to load sample ${sampleName}:`, error);
+                    return null;
+                }
+            }
+            
+            // Calculate frequency for a given key in 72 EDO
+            getFrequency(keyNumber) {
+                // In 72 EDO, each step is 1/72 of an octave
+                // With 8 octaves, we'll place A4 at octave 4 + 54 steps (9 semitones)
+                // This gives us C0-C7 range with good coverage above and below middle C
+                const middleAKey = 4 * this.notesPerOctave + 54; // 342 (A4)
+                const stepsFromA4 = keyNumber - middleAKey;
+                const octaveOffset = stepsFromA4 / this.notesPerOctave;
+                return this.baseFrequency * Math.pow(2, octaveOffset);
+            }
+            
+            // Play a note with given key number
+            async playNote(keyNumber, velocity = 100, sampleName = null, isGlissando = false, pan = 0) {
+                // For glissando with portamento, update existing note's pitch
+                if (isGlissando && this.currentGlissandoNote) {
+                    let targetRate;
+                    const currentSample = sampleName || this.currentSample;
+                    const isDrum = currentSample.startsWith('ORG_D');
+                    
+                    if (isDrum) {
+                        // For drums, keyNumber is already in the correct range
+                        // Just convert from 72edo to drum key (0-255)
+                        const drumKey = Math.round(keyNumber / 6); // Convert 72edo to semitone value
+                        const clampedKey = Math.max(0, Math.min(255, drumKey));
+                        const drumFreq = clampedKey * 800 + 100;
+                        const baseDrumFreq = 22050;
+                        targetRate = drumFreq / baseDrumFreq;
+                    } else {
+                        // For melodic samples, use standard frequency calculation
+                        const freq = this.getFrequency(keyNumber);
+                        const baseKey = 4 * this.notesPerOctave; // C4 position
+                        const baseFreq = this.getFrequency(baseKey);
+                        targetRate = (freq / baseFreq) * 2 * Math.sqrt(2);
+                    }
+                    
+                    // Smooth pitch transition over 50ms
+                    const now = this.audioContext.currentTime;
+                    this.currentGlissandoNote.source.playbackRate.cancelScheduledValues(now);
+                    this.currentGlissandoNote.source.playbackRate.setValueAtTime(
+                        this.currentGlissandoNote.source.playbackRate.value, now
+                    );
+                    this.currentGlissandoNote.source.playbackRate.linearRampToValueAtTime(targetRate, now + 0.05);
+                    
+                    // Update the key reference
+                    this.activeNotes.delete(this.currentGlissandoKey);
+                    this.activeNotes.set(keyNumber, this.currentGlissandoNote);
+                    this.currentGlissandoKey = keyNumber;
+                    return;
+                }
+                
+                // Stop any existing note on this key first
+                if (this.activeNotes.has(keyNumber)) {
+                    this.stopNote(keyNumber);
+                }
+                
+                const sample = sampleName || this.currentSample;
+                const buffer = await this.loadSample(sample);
+                if (!buffer) return;
+                
+                const now = this.audioContext.currentTime;
+                const source = this.audioContext.createBufferSource();
+                const gain = this.audioContext.createGain();
+                const panner = this.audioContext.createStereoPanner();
+                
+                // Connect nodes
+                source.buffer = buffer;
+                source.connect(gain);
+                gain.connect(panner);
+                panner.connect(this.masterGain);
+                
+                // Set pan value (-1 to 1, where -1 is left, 0 is center, 1 is right)
+                panner.pan.value = pan / 100;
+                
+                // Configure based on sample type
+                const isDrum = sample.startsWith('ORG_D');
+                
+                // Calculate playback rate for pitch
+                if (isDrum) {
+                    // For drums, keyNumber is already in the correct range
+                    // Just convert from 72edo to drum key (0-255)
+                    const drumKey = Math.round(keyNumber / 6); // Convert 72edo to semitone value
+                    const clampedKey = Math.max(0, Math.min(255, drumKey));
+                    const drumFreq = clampedKey * 800 + 100;
+                    
+                    // Base drum sample frequency (assuming recorded at ~22050 Hz base)
+                    const baseDrumFreq = 22050;
+                    source.playbackRate.value = drumFreq / baseDrumFreq;
+                } else {
+                    // Melodic samples use standard 72edo frequency calculation
+                    const freq = this.getFrequency(keyNumber);
+                    // ORG samples are recorded lower, multiply by 2*sqrt(2) (≈2.828) to correct pitch
+                    const baseKey = 4 * this.notesPerOctave; // C4 position (key 288 in 72edo)
+                    const baseFreq = this.getFrequency(baseKey);
+                    source.playbackRate.value = (freq / baseFreq) * 2 * Math.sqrt(2);
+                }
+                
+                // Use authentic Organya volume scaling (matches organya-js)
+                // Original formula: Math.pow(10, ((vol - 255) * 8) / 2000)
+                // Convert velocity (0-127) to Organya vol (0-255), then apply authentic scaling
+                const orgVol = velocity * 2; // Convert 0-127 to 0-254 range
+                const authenticVolume = Math.pow(10, ((orgVol - 255) * 8) / 2000);
+                
+                if (isDrum) {
+                    // Drums: one-shot with authentic volume (no envelope)
+                    source.loop = false;
+                    gain.gain.setValueAtTime(authenticVolume, now);
+                } else {
+                    // Melodic: loop for sustain, with authentic volume (no envelope curves)
+                    source.loop = true;
+                    gain.gain.setValueAtTime(authenticVolume, now);
+                }
+                
+                // Start playback
+                source.start(now);
+                
+                // Store reference for stopping
+                const noteData = { source, gain, panner, isDrum };
+                this.activeNotes.set(keyNumber, noteData);
+                
+                // Track for glissando if from piano keys
+                if (isGlissando) {
+                    this.currentGlissandoNote = noteData;
+                    this.currentGlissandoKey = keyNumber;
+                }
+            }
+            
+            // Stop a playing note
+            stopNote(keyNumber) {
+                const note = this.activeNotes.get(keyNumber);
+                if (note) {
+                    // Immediately remove from active notes to prevent issues
+                    this.activeNotes.delete(keyNumber);
+                    
+                    try {
+                        const now = this.audioContext.currentTime;
+                        
+                        // Authentic organya behavior: immediate stop (no fade-out)
+                        note.source.stop(now + 0.01); // Very brief delay to prevent audio glitches
+                        note.gain.gain.setValueAtTime(0, now + 0.01);
+                        
+                        // Ensure cleanup happens
+                        setTimeout(() => {
+                            try {
+                                note.source.disconnect();
+                                note.gain.disconnect();
+                            } catch (e) {
+                                // Node might already be disconnected
+                            }
+                        }, 50); // Shorter cleanup time since no fade-out
+                    } catch (e) {
+                        // If stopping fails, force cleanup
+                        console.warn('Error stopping note:', e);
+                        try {
+                            note.source.disconnect();
+                            note.gain.disconnect();
+                        } catch (disconnectError) {
+                            // Node might already be disconnected
+                        }
+                    }
+                }
+            }
+            
+            // Stop all playing notes
+            stopAllNotes() {
+                for (const [key, _] of this.activeNotes) {
+                    this.stopNote(key);
+                }
+            }
+            
+            resize() {
+                const container = this.canvas.parentElement;
+                this.canvas.width = container.clientWidth;
+                this.canvas.height = container.clientHeight;
+                this.dirty = true;
+            }
+            
+            setupEventListeners() {
+                window.addEventListener('resize', () => this.resize());
+                
+                this.canvas.addEventListener('mousedown', (e) => this.onMouseDown(e));
+                this.canvas.addEventListener('mousemove', (e) => this.onMouseMove(e));
+                this.canvas.addEventListener('mouseup', (e) => this.onMouseUp(e));
+                this.canvas.addEventListener('mouseleave', (e) => this.onMouseLeave(e));
+                this.canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+                this.canvas.addEventListener('wheel', (e) => this.onWheel(e));
+                
+                // Global mouse up to catch releases outside canvas
+                window.addEventListener('mouseup', (e) => this.onMouseUp(e));
+                
+                // Keyboard navigation
+                window.addEventListener('keydown', (e) => {
+                    // Arrow keys for moving selected notes
+                    if (this.selectedNotes.size > 0) {
+                        const subdivisionWidth = this.gridWidth / this.gridSubdivisions;
+                        switch(e.key) {
+                            case 'ArrowLeft':
+                                // Move selected notes left by one grid subdivision
+                                for (const note of this.selectedNotes) {
+                                    const newX = note.x - subdivisionWidth;
+                                    if (newX >= this.pianoKeyWidth) {
+                                        note.x = newX;
+                                    }
+                                }
+                                this.dirty = true;
+                                e.preventDefault();
+                                break;
+                            case 'ArrowRight':
+                                // Move selected notes right by one grid subdivision
+                                for (const note of this.selectedNotes) {
+                                    note.x += subdivisionWidth;
+                                }
+                                this.dirty = true;
+                                e.preventDefault();
+                                break;
+                            case 'ArrowUp':
+                                // Move selected notes up one key
+                                for (const note of this.selectedNotes) {
+                                    if (note.key < this.numKeys - 1) {
+                                        note.key += 1;
+                                        note.y -= this.noteHeight;
+                                    }
+                                }
+                                this.dirty = true;
+                                e.preventDefault();
+                                break;
+                            case 'ArrowDown':
+                                // Move selected notes down one key
+                                for (const note of this.selectedNotes) {
+                                    if (note.key > 0) {
+                                        note.key -= 1;
+                                        note.y += this.noteHeight;
+                                    }
+                                }
+                                this.dirty = true;
+                                e.preventDefault();
+                                break;
+                        }
+                    }
+                    
+                    // Home/End keys for timeline navigation
+                    switch(e.key) {
+                        case 'Home':
+                            this.scrollX = 0;
+                            this.dirty = true;
+                            e.preventDefault();
+                            break;
+                        case 'End':
+                            this.scrollX = this.totalWidth - this.canvas.width;
+                            this.dirty = true;
+                            e.preventDefault();
+                            break;
+                    }
+                });
+            }
+            
+            // Helper methods for cleaner code
+            getMouseCoordinates(e) {
+                const rect = this.canvas.getBoundingClientRect();
+                return {
+                    x: e.clientX - rect.left + this.scrollX,
+                    y: e.clientY - rect.top + this.scrollY
+                };
+            }
+            
+            getKeyFromY(y) {
+                return this.numKeys - 1 - Math.floor(y / this.noteHeight);
+            }
+            
+            snapXToGrid(x) {
+                if (!this.gridSnap) return x - this.pianoKeyWidth;
+                const subdivisionWidth = this.gridWidth / this.gridSubdivisions;
+                return Math.floor((x - this.pianoKeyWidth) / subdivisionWidth) * subdivisionWidth;
+            }
+            
+            isInResizeZone(note, x) {
+                const leftZone = note.width > this.resizeHandle * 3 ? this.resizeHandle : this.resizeHandle / 2;
+                return {
+                    left: x <= note.x + leftZone,
+                    right: x >= note.x + note.width - this.resizeHandle
+                };
+            }
+            
+            clearScheduledNotes() {
+                // No longer using setTimeout for scheduling
+            }
+            
+            stopAllPlayingNotes() {
+                if (this.playingNotes) {
+                    for (const [note, key] of this.playingNotes) {
+                        this.stopNote(key);
+                    }
+                    this.playingNotes.clear();
+                }
+            }
+            
+            createNote(x, y) {
+                const key = this.getKeyFromY(y);
+                if (key < 0 || key >= this.numKeys || x < this.pianoKeyWidth) return null;
+                
+                const subdivisionWidth = this.gridWidth / this.gridSubdivisions;
+                const gridX = this.snapXToGrid(x);
+                const noteX = Math.max(this.pianoKeyWidth, gridX + this.pianoKeyWidth);
+                
+                return {
+                    x: noteX,
+                    y: (this.numKeys - 1 - key) * this.noteHeight,
+                    width: subdivisionWidth,
+                    height: this.noteHeight,
+                    key: key,
+                    velocity: this.currentVelocity,
+                    pan: 0, // Center pan (range: -100 to 100)
+                    instrument: this.currentSample
+                };
+            }
+            
+            prepareNoteResize(note, direction, isNoteSelected) {
+                this.isResizing = true;
+                this.resizeDirection = direction;
+                this.dragStartX = direction === 'right' ? note.x + note.width : note.x;
+                
+                if (direction === 'left') {
+                    this.originalNoteEnd = note.x + note.width;
+                }
+                
+                if (isNoteSelected) {
+                    this.resizingSelection = true;
+                    this.originalWidths = new Map();
+                    for (const n of this.selectedNotes) {
+                        this.originalWidths.set(n, n.width);
+                    }
+                    
+                    if (direction === 'left') {
+                        this.originalPositions = new Map();
+                        for (const n of this.selectedNotes) {
+                            this.originalPositions.set(n, { x: n.x, y: n.y });
+                        }
+                    }
+                }
+            }
+            
+            prepareNoteDrag(note, x, y, isNoteSelected, shiftKey) {
+                this.isDragging = true;
+                this.dragStartX = x - note.x;
+                this.dragStartY = y - note.y;
+                
+                if (isNoteSelected) {
+                    this.draggingSelection = true;
+                    this.originalPositions = new Map();
+                    for (const n of this.selectedNotes) {
+                        this.originalPositions.set(n, { x: n.x, y: n.y });
+                    }
+                } else if (!shiftKey) {
+                    this.selectedNotes.clear();
+                }
+            }
+            
+            onMouseDown(e) {
+                const { x, y } = this.getMouseCoordinates(e);
+                
+                if (e.button === 2) { // Right click - delete notes or start delete selection
+                    const note = this.getNoteAt(x, y);
+                    if (note) {
+                        this.deleteNoteAt(x, y);
+                    } else {
+                        // Start delete selection box
+                        this.isDeleteSelecting = true;
+                        this.selectionBox = { x1: x, y1: y, x2: x, y2: y };
+                        this.selectedNotes.clear();
+                        this.dirty = true;
+                    }
+                } else { // Left click
+                    const key = this.getKeyFromY(y);
+                    if (key >= 0 && key < this.numKeys) {
+                        if (x - this.scrollX < this.pianoKeyWidth) {
+                            // Piano key interaction
+                            this.playNote(key, 100, null, true);
+                            this.currentPlayingKey = key;
+                            this.isGlissando = true;
+                            this.lastGlissandoKey = key;
+                            this.pressedKeys.add(key);
+                            this.dirty = true;
+                        } else {
+                            // Grid area interaction
+                            const note = this.getNoteAt(x, y);
+                            
+                            if (e.ctrlKey || e.metaKey || (e.shiftKey && !note)) {
+                                // Start selection box
+                                this.isSelecting = true;
+                                this.selectionBox = { x1: x, y1: y, x2: x, y2: y };
+                                this.shiftKeyHeld = e.shiftKey;
+                                if (!e.shiftKey) {
+                                    this.selectedNotes.clear();
+                                }
+                                this.dirty = true;
+                            } else if (note) {
+                                // Check if note is selected and Shift is held for multi-select
+                                if (e.shiftKey) {
+                                    if (this.selectedNotes.has(note)) {
+                                        this.selectedNotes.delete(note);
+                                    } else {
+                                        this.selectedNotes.add(note);
+                                        // Note velocity: note.velocity
+                                    }
+                                    this.dirty = true;
+                                } else {
+                                    // Regular note interaction
+                                    this.dragNote = note;
+                                    const isNoteSelected = this.selectedNotes.has(note);
+                                    const resizeZone = this.isInResizeZone(note, x);
+                                    
+                                    if (resizeZone.right) {
+                                        this.prepareNoteResize(note, 'right', isNoteSelected);
+                                    } else if (resizeZone.left) {
+                                        this.prepareNoteResize(note, 'left', isNoteSelected);
+                                    } else {
+                                        this.prepareNoteDrag(note, x, y, isNoteSelected, e.shiftKey);
+                                    }
+                                }
+                            } else if (!e.ctrlKey && !e.metaKey) {
+                                // Left click on empty space - create new note
+                                const newNote = this.createNote(x, y);
+                                if (newNote) {
+                                    this.dragNote = newNote;
+                                    this.notes.push(this.dragNote);
+                                    this.needsNoteGrouping = true; // Invalidate cache
+                                    this.isCreatingNote = true;
+                                    this.createStartX = newNote.x;
+                                    this.selectedNotes.clear();
+                                    this.dirty = true;
+                                }
+                            }
+                        }
+                    } else {
+                        // Clicking in empty space outside valid key range starts selection
+                        this.isSelecting = true;
+                        this.selectionBox = { x1: x, y1: y, x2: x, y2: y };
+                        this.selectedNotes.clear();
+                        this.dirty = true;
+                    }
+                }
+            }
+            
+            updateCursor(x, y) {
+                if (!this.isDragging && !this.isResizing && x > this.pianoKeyWidth) {
+                    const note = this.getNoteAt(x, y);
+                    if (note) {
+                        const resizeZone = this.isInResizeZone(note, x);
+                        this.canvas.style.cursor = (resizeZone.left || resizeZone.right) ? 'ew-resize' : 'move';
+                    } else {
+                        this.canvas.style.cursor = 'crosshair';
+                    }
+                }
+            }
+            
+            handleGlissando(x, y) {
+                if (this.isGlissando && x - this.scrollX < this.pianoKeyWidth) {
+                    const key = this.getKeyFromY(y);
+                    if (key >= 0 && key < this.numKeys && key !== this.lastGlissandoKey) {
+                        this.pressedKeys.clear();
+                        this.pressedKeys.add(key);
+                        this.playNote(key, 100, null, true);
+                        this.currentPlayingKey = key;
+                        this.lastGlissandoKey = key;
+                        this.dirty = true;
+                    }
+                }
+            }
+            
+            onMouseMove(e) {
+                const { x, y } = this.getMouseCoordinates(e);
+                this.mouseX = x;
+                this.mouseY = y;
+                
+                // Update hovered row
+                const prevHoveredRow = this.hoveredRow;
+                this.hoveredRow = Math.floor(y / this.noteHeight);
+                if (this.hoveredRow !== prevHoveredRow) {
+                    this.dirty = true;
+                }
+                
+                this.updateCursor(x, y);
+                this.handleGlissando(x, y);
+                
+                // Handle note resizing
+                if (this.isResizing && this.dragNote) {
+                    const subdivisionWidth = this.gridWidth / this.gridSubdivisions;
+                    
+                    if (this.resizingSelection && this.selectedNotes.has(this.dragNote)) {
+                        // Resize all selected notes together
+                        if (this.resizeDirection === 'left') {
+                            // Calculate delta for the dragged note
+                            const newX = this.gridSnap ? 
+                                Math.floor((x - this.pianoKeyWidth) / subdivisionWidth) * subdivisionWidth + this.pianoKeyWidth :
+                                x;
+                            const deltaX = newX - this.dragStartX;
+                            
+                            // Apply to all selected notes
+                            for (const note of this.selectedNotes) {
+                                const originalPos = this.originalPositions.get(note);
+                                const originalWidth = this.originalWidths.get(note);
+                                if (originalPos && originalWidth) {
+                                    const newNoteX = Math.max(this.pianoKeyWidth, originalPos.x + deltaX);
+                                    const widthDelta = originalPos.x - newNoteX;
+                                    note.x = newNoteX;
+                                    note.width = Math.max(subdivisionWidth, originalWidth + widthDelta);
+                                }
+                            }
+                        } else {
+                            // Resize from right edge - calculate width ratio
+                            const originalWidth = this.originalWidths.get(this.dragNote);
+                            if (originalWidth) {
+                                const newWidth = this.gridSnap ?
+                                    Math.max(subdivisionWidth, Math.round((x - this.dragNote.x) / subdivisionWidth) * subdivisionWidth) :
+                                    Math.max(subdivisionWidth, x - this.dragNote.x);
+                                const widthRatio = newWidth / originalWidth;
+                                
+                                // Apply ratio to all selected notes
+                                for (const note of this.selectedNotes) {
+                                    const origWidth = this.originalWidths.get(note);
+                                    if (origWidth) {
+                                        note.width = Math.max(subdivisionWidth, origWidth * widthRatio);
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        // Single note resize (original behavior)
+                        if (this.resizeDirection === 'left') {
+                            // Resize from left edge
+                            const newX = this.gridSnap ? 
+                                Math.floor((x - this.pianoKeyWidth) / subdivisionWidth) * subdivisionWidth + this.pianoKeyWidth :
+                                x;
+                            const constrainedX = Math.min(newX, this.originalNoteEnd - subdivisionWidth);
+                            const constrainedXFinal = Math.max(this.pianoKeyWidth, constrainedX);
+                            
+                            this.dragNote.width = this.originalNoteEnd - constrainedXFinal;
+                            this.dragNote.x = constrainedXFinal;
+                        } else {
+                            // Resize from right edge
+                            if (this.gridSnap) {
+                                const newWidth = Math.max(subdivisionWidth, 
+                                    Math.round((x - this.dragNote.x) / subdivisionWidth) * subdivisionWidth);
+                                this.dragNote.width = newWidth;
+                            } else {
+                                this.dragNote.width = Math.max(subdivisionWidth, x - this.dragNote.x);
+                            }
+                        }
+                    }
+                    this.dirty = true;
+                }
+                
+                // Handle note creation (drawing out length)
+                else if (this.isCreatingNote && this.dragNote) {
+                    const subdivisionWidth = this.gridWidth / this.gridSubdivisions;
+                    if (this.gridSnap) {
+                        const endX = Math.floor((x - this.pianoKeyWidth) / subdivisionWidth) * subdivisionWidth + this.pianoKeyWidth;
+                        const width = Math.max(subdivisionWidth, endX - this.createStartX + subdivisionWidth);
+                        this.dragNote.width = width;
+                    } else {
+                        this.dragNote.width = Math.max(subdivisionWidth, x - this.createStartX);
+                    }
+                    this.dirty = true;
+                }
+                
+                // Handle note dragging
+                else if (this.isDragging && this.dragNote) {
+                    if (this.draggingSelection && this.selectedNotes.has(this.dragNote)) {
+                        // Move all selected notes together
+                        const subdivisionWidth = this.gridWidth / this.gridSubdivisions;
+                        
+                        // Calculate delta for the dragged note
+                        let deltaX;
+                        if (this.gridSnap) {
+                            const proposedX = Math.floor((x - this.dragStartX - this.pianoKeyWidth) / subdivisionWidth) * subdivisionWidth + this.pianoKeyWidth;
+                            deltaX = proposedX - this.originalPositions.get(this.dragNote).x;
+                        } else {
+                            deltaX = (x - this.dragStartX) - this.originalPositions.get(this.dragNote).x;
+                        }
+                        
+                        const newKey = this.numKeys - 1 - Math.floor((y - this.dragStartY + this.noteHeight / 2) / this.noteHeight);
+                        const keyDelta = newKey >= 0 && newKey < this.numKeys ? 
+                            newKey - (this.numKeys - 1 - Math.floor(this.originalPositions.get(this.dragNote).y / this.noteHeight)) : 0;
+                        
+                        // Apply delta to all selected notes
+                        for (const note of this.selectedNotes) {
+                            const originalPos = this.originalPositions.get(note);
+                            if (originalPos) {
+                                // Update X position
+                                note.x = Math.max(this.pianoKeyWidth, originalPos.x + deltaX);
+                                
+                                // Update Y position and key
+                                const originalKey = this.numKeys - 1 - Math.floor(originalPos.y / this.noteHeight);
+                                const newNoteKey = originalKey + keyDelta;
+                                if (newNoteKey >= 0 && newNoteKey < this.numKeys) {
+                                    note.y = (this.numKeys - 1 - newNoteKey) * this.noteHeight;
+                                    note.key = newNoteKey;
+                                }
+                            }
+                        }
+                    } else {
+                        // Single note drag (original behavior)
+                        if (this.gridSnap) {
+                            const subdivisionWidth = this.gridWidth / this.gridSubdivisions;
+                            const proposedX = Math.floor((x - this.dragStartX - this.pianoKeyWidth) / subdivisionWidth) * subdivisionWidth + this.pianoKeyWidth;
+                            // Ensure note doesn't go before the piano keys
+                            this.dragNote.x = Math.max(this.pianoKeyWidth, proposedX);
+                        } else {
+                            // Ensure note doesn't go before the piano keys
+                            this.dragNote.x = Math.max(this.pianoKeyWidth, x - this.dragStartX);
+                        }
+                        
+                        const newKey = this.numKeys - 1 - Math.floor((y - this.dragStartY + this.noteHeight / 2) / this.noteHeight);
+                        if (newKey >= 0 && newKey < this.numKeys) {
+                            this.dragNote.y = (this.numKeys - 1 - newKey) * this.noteHeight;
+                            this.dragNote.key = newKey;
+                        }
+                    }
+                    
+                    this.dirty = true;
+                }
+                
+                // Handle selection box
+                else if ((this.isSelecting || this.isDeleteSelecting) && this.selectionBox) {
+                    this.selectionBox.x2 = x;
+                    this.selectionBox.y2 = y;
+                    
+                    // Update selected notes based on selection box
+                    const minX = Math.min(this.selectionBox.x1, this.selectionBox.x2);
+                    const maxX = Math.max(this.selectionBox.x1, this.selectionBox.x2);
+                    const minY = Math.min(this.selectionBox.y1, this.selectionBox.y2);
+                    const maxY = Math.max(this.selectionBox.y1, this.selectionBox.y2);
+                    
+                    // For delete selection, always clear and rebuild
+                    if (this.isDeleteSelecting) {
+                        this.selectedNotes.clear();
+                    }
+                    // For regular selection, only clear if shift wasn't held when starting
+                    else if (!this.shiftKeyHeld) {
+                        this.selectedNotes.clear();
+                    }
+                    
+                    for (const note of this.notes) {
+                        const noteY = (this.numKeys - 1 - note.key) * this.noteHeight;
+                        if (note.x < maxX && note.x + note.width > minX &&
+                            noteY < maxY && noteY + note.height > minY) {
+                            this.selectedNotes.add(note);
+                        }
+                    }
+                    
+                    this.dirty = true;
+                }
+            }
+            
+            onMouseUp(e) {
+                // Handle delete selection
+                if (this.isDeleteSelecting && this.selectedNotes.size > 0) {
+                    // Delete all selected notes
+                    for (const note of this.selectedNotes) {
+                        const index = this.notes.indexOf(note);
+                        if (index > -1) {
+                            this.notes.splice(index, 1);
+                        }
+                    }
+                    this.selectedNotes.clear();
+                    this.dirty = true;
+                }
+                
+                this.isDragging = false;
+                this.isResizing = false;
+                this.isCreatingNote = false;
+                this.isSelecting = false;
+                this.isDeleteSelecting = false;
+                this.isGlissando = false;
+                this.dragNote = null;
+                this.selectionBox = null;
+                this.draggingSelection = false;
+                this.resizingSelection = false;
+                this.originalPositions = null;
+                this.originalWidths = null;
+                this.shiftKeyHeld = false;
+                
+                // Invalidate cache if any notes were moved/resized
+                this.needsNoteGrouping = true;
+                
+                // Stop playing note if we were playing one
+                if (this.currentPlayingKey !== undefined) {
+                    this.stopNote(this.currentPlayingKey);
+                    this.currentPlayingKey = undefined;
+                    this.currentGlissandoNote = null;
+                    this.currentGlissandoKey = null;
+                    this.pressedKeys.clear();
+                    this.dirty = true;
+                }
+            }
+            
+            onMouseLeave(e) {
+                this.hoveredRow = -1;
+                this.dirty = true;
+            }
+            
+            onWheel(e) {
+                e.preventDefault();
+                
+                if (e.shiftKey) {
+                    // Horizontal scroll with shift + wheel
+                    const deltaX = e.deltaY;
+                    this.scrollX = Math.max(0, Math.min(this.scrollX + deltaX, this.totalWidth - this.canvas.width));
+                } else {
+                    // Vertical scroll
+                    const deltaY = e.deltaY;
+                    this.scrollY = Math.max(0, Math.min(this.scrollY + deltaY, this.numKeys * this.noteHeight - this.canvas.height));
+                }
+                
+                this.dirty = true;
+            }
+            
+            getNoteAt(x, y) {
+                for (let i = this.notes.length - 1; i >= 0; i--) {
+                    const note = this.notes[i];
+                    const noteY = (this.numKeys - 1 - note.key) * this.noteHeight;
+                    if (x >= note.x && x <= note.x + note.width &&
+                        y >= noteY && y <= noteY + this.noteHeight) {
+                        return note;
+                    }
+                }
+                return null;
+            }
+            
+            deleteNoteAt(x, y) {
+                const note = this.getNoteAt(x, y);
+                if (note) {
+                    const index = this.notes.indexOf(note);
+                    if (index > -1) {
+                        this.notes.splice(index, 1);
+                        this.needsNoteGrouping = true; // Invalidate cache
+                        this.dirty = true;
+                    }
+                }
+            }
+            
+            updateVisibleNotes() {
+                const startY = this.scrollY;
+                const endY = this.scrollY + this.canvas.height;
+                const startX = this.scrollX;
+                const endX = this.scrollX + this.canvas.width;
+                
+                this.visibleNotes = this.notes.filter(note => {
+                    const noteY = (this.numKeys - 1 - note.key) * this.noteHeight;
+                    return note.x + note.width >= startX &&
+                           note.x <= endX &&
+                           noteY + note.height >= startY &&
+                           noteY <= endY;
+                });
+            }
+            
+            drawPianoKeys(ctx, startKey, endKey) {
+                // First pass: Draw only white keys and microtonal keys
+                for (let i = startKey; i < endKey && i < this.numKeys; i++) {
+                    const displayKey = this.numKeys - 1 - i;
+                    const noteInOctave = displayKey % this.notesPerOctave;
+                    const semitone = Math.floor(noteInOctave / this.notesPerSemitone);
+                    const microtone = noteInOctave % this.notesPerSemitone;
+                    const isBlackKey = [1, 3, 6, 8, 10].includes(semitone);
+                    
+                    // Skip pure black keys in first pass
+                    if (isBlackKey && microtone === 0) continue;
+                    
+                    const y = i * this.noteHeight;
+                    const keyWidth = this.pianoKeyWidth;
+                    const isPressed = this.pressedKeys.has(displayKey);
+                    
+                    // Base color
+                    let keyColor;
+                    if (microtone === 0) {
+                        if (isPressed) {
+                            keyColor = '#4a9eff';
+                        } else {
+                            keyColor = this.colors.whiteKey;
+                        }
+                    } else {
+                        const blendFactor = microtone / this.notesPerSemitone;
+                        if (isPressed) {
+                            keyColor = '#4a9eff';
+                        } else {
+                            keyColor = isBlackKey ? 
+                                `hsl(0, 0%, ${10 + blendFactor * 10}%)` : 
+                                `hsl(0, 0%, ${23 + blendFactor * 12}%)`;
+                        }
+                    }
+                    
+                    // Draw key background
+                    ctx.fillStyle = keyColor;
+                    ctx.fillRect(0, y, keyWidth, this.noteHeight);
+                    
+                    // Add subtle gradient effect for white keys
+                    if (!isBlackKey && microtone === 0 && !isPressed) {
+                        const gradient = ctx.createLinearGradient(0, y, keyWidth * 0.8, y);
+                        gradient.addColorStop(0, this.colors.whiteKey);
+                        gradient.addColorStop(1, this.colors.whiteKeyHighlight);
+                        ctx.fillStyle = gradient;
+                        ctx.fillRect(0, y, keyWidth, this.noteHeight);
+                    }
+                    
+                    // Draw key border
+                    ctx.strokeStyle = this.colors.keyBorder;
+                    ctx.lineWidth = 0.5;
+                    ctx.strokeRect(0, y, keyWidth, this.noteHeight);
+                }
+                
+                // Second pass: Draw black keys on top for proper layering
+                for (let i = startKey; i < endKey && i < this.numKeys; i++) {
+                    const displayKey = this.numKeys - 1 - i;
+                    const noteInOctave = displayKey % this.notesPerOctave;
+                    const semitone = Math.floor(noteInOctave / this.notesPerSemitone);
+                    const microtone = noteInOctave % this.notesPerSemitone;
+                    const isBlackKey = [1, 3, 6, 8, 10].includes(semitone);
+                    
+                    if (isBlackKey && microtone === 0) {
+                        const y = i * this.noteHeight;
+                        const keyWidth = this.pianoKeyWidth;
+                        const isPressed = this.pressedKeys.has(displayKey);
+                        
+                        // Redraw black key
+                        ctx.fillStyle = isPressed ? '#4a9eff' : this.colors.blackKey;
+                        ctx.fillRect(0, y, keyWidth, this.noteHeight);
+                        
+                        // Add gradient (only if not pressed)
+                        if (!isPressed) {
+                            const gradient = ctx.createLinearGradient(0, y, keyWidth * 0.8, y);
+                            gradient.addColorStop(0, this.colors.blackKey);
+                            gradient.addColorStop(1, this.colors.blackKeyHighlight);
+                            ctx.fillStyle = gradient;
+                            ctx.fillRect(0, y, keyWidth, this.noteHeight);
+                        }
+                        
+                        // Border
+                        ctx.strokeStyle = this.colors.keyBorder;
+                        ctx.lineWidth = 0.5;
+                        ctx.strokeRect(0, y, keyWidth, this.noteHeight);
+                    }
+                    
+                    // Draw labels
+                    const octave = Math.floor(displayKey / this.notesPerOctave);
+                    const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+                    
+                    if (microtone === 0 && this.noteHeight >= 8) {
+                        ctx.fillStyle = isBlackKey ? '#aaa' : this.colors.text;
+                        ctx.font = '9px Arial';
+                        const labelX = isBlackKey ? 3 : 5;
+                        ctx.fillText(`${noteNames[semitone]}${octave}`, labelX, i * this.noteHeight + this.noteHeight - 1);
+                    } else if (microtone === 0 && semitone === 0 && this.noteHeight < 8) {
+                        ctx.fillStyle = this.colors.text;
+                        ctx.font = '7px Arial';
+                        ctx.fillText(`C${octave}`, 3, i * this.noteHeight + this.noteHeight);
+                    }
+                }
+                
+                // Draw vertical separator line
+                ctx.strokeStyle = this.colors.keyBorder;
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(this.pianoKeyWidth, this.scrollY);
+                ctx.lineTo(this.pianoKeyWidth, this.scrollY + this.canvas.height);
+                ctx.stroke();
+            }
+            
+            drawGrid(ctx, width, height) {
+                // Draw loop region if enabled
+                if (this.loopEnabled) {
+                    const measureWidth = this.beatsPerMeasure * this.gridWidth;
+                    const loopStartX = this.pianoKeyWidth + this.loopStart * measureWidth;
+                    const loopEndX = this.pianoKeyWidth + this.loopEnd * measureWidth;
+                    
+                    // Draw loop background
+                    ctx.fillStyle = 'rgba(74, 158, 255, 0.1)';
+                    ctx.fillRect(loopStartX, 0, loopEndX - loopStartX, this.numKeys * this.noteHeight);
+                    
+                    // Draw loop markers
+                    ctx.strokeStyle = '#4a9eff';
+                    ctx.lineWidth = 3;
+                    
+                    // A marker
+                    ctx.beginPath();
+                    ctx.moveTo(loopStartX, 0);
+                    ctx.lineTo(loopStartX, this.numKeys * this.noteHeight);
+                    ctx.stroke();
+                    
+                    // B marker
+                    ctx.beginPath();
+                    ctx.moveTo(loopEndX, 0);
+                    ctx.lineTo(loopEndX, this.numKeys * this.noteHeight);
+                    ctx.stroke();
+                    
+                    // Labels
+                    ctx.fillStyle = '#4a9eff';
+                    ctx.font = 'bold 14px Arial';
+                    ctx.fillText('A', loopStartX + 4, this.scrollY + 20);
+                    ctx.fillText('B', loopEndX - 14, this.scrollY + 20);
+                }
+                
+                if (this.hoveredRow >= 0 && this.hoveredRow < this.numKeys) {
+                    // Check if this is a pure note (no microtones)
+                    const displayKey = this.numKeys - 1 - this.hoveredRow;
+                    const noteInOctave = displayKey % this.notesPerOctave;
+                    const microtone = noteInOctave % this.notesPerSemitone;
+                    
+                    // Use stronger highlight for pure notes
+                    if (microtone === 0) {
+                        ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
+                    } else {
+                        ctx.fillStyle = 'rgba(255, 255, 255, 0.06)';
+                    }
+                    ctx.fillRect(this.pianoKeyWidth, this.hoveredRow * this.noteHeight, this.totalWidth - this.pianoKeyWidth, this.noteHeight);
+                }
+                
+                ctx.strokeStyle = '#444';
+                ctx.lineWidth = 2;
+                const measureWidth = this.beatsPerMeasure * this.gridWidth;
+                
+                for (let i = 0; i <= this.totalMeasures; i++) {
+                    const x = this.pianoKeyWidth + i * measureWidth;
+                    if (x >= this.scrollX && x <= this.scrollX + width) {
+                        ctx.beginPath();
+                        ctx.moveTo(x, this.scrollY);
+                        ctx.lineTo(x, this.scrollY + height);
+                        ctx.stroke();
+                        
+                        if (i < this.totalMeasures) {
+                            ctx.fillStyle = this.colors.text;
+                            ctx.font = '12px Arial';
+                            ctx.fillText(`${i + 1}`, x + 4, this.scrollY + 15);
+                        }
+                    }
+                }
+                
+                // Draw beat lines
+                ctx.strokeStyle = '#333';
+                ctx.lineWidth = 1;
+                for (let i = 0; i <= this.totalMeasures * this.beatsPerMeasure; i++) {
+                    const x = this.pianoKeyWidth + i * this.gridWidth;
+                    if (x >= this.scrollX && x <= this.scrollX + width && i % this.beatsPerMeasure !== 0) {
+                        ctx.beginPath();
+                        ctx.moveTo(x, this.scrollY);
+                        ctx.lineTo(x, this.scrollY + height);
+                        ctx.stroke();
+                    }
+                }
+            }
+            
+            drawNotes(ctx) {
+                for (const note of this.visibleNotes) {
+                    const noteY = (this.numKeys - 1 - note.key) * this.noteHeight;
+                    
+                    let noteColor, borderColor;
+                    if (note.instrument) {
+                        const colors = this.getInstrumentColor(note.instrument);
+                        noteColor = colors.note;
+                        borderColor = colors.border;
+                    } else {
+                        noteColor = this.colors.note;
+                        borderColor = this.colors.noteBorder;
+                    }
+                    
+                    const opacity = 0.4 + (note.velocity / 127) * 0.6;
+                    
+                    ctx.save();
+                    ctx.globalAlpha = opacity;
+                    
+                    if (this.selectedNotes.has(note)) {
+                        ctx.fillStyle = '#6ab7ff';
+                        ctx.strokeStyle = '#357abd';
+                    } else {
+                        ctx.fillStyle = noteColor;
+                        ctx.strokeStyle = borderColor;
+                    }
+                    
+                    ctx.fillRect(note.x, noteY, note.width, note.height);
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(note.x, noteY, note.width, note.height);
+                    
+                    ctx.restore();
+                }
+            }
+            
+            drawPlayhead(ctx, height) {
+                if (this.isPlaying && this.currentMeasure >= 0 && this.currentMeasure < this.totalMeasures) {
+                    const measureWidth = this.beatsPerMeasure * this.gridWidth;
+                    const measureX = this.pianoKeyWidth + this.currentMeasure * measureWidth;
+                    
+                    ctx.fillStyle = 'rgba(255, 68, 68, 0.1)';
+                    ctx.fillRect(measureX, this.scrollY, measureWidth, height);
+                    
+                    ctx.strokeStyle = 'rgba(255, 68, 68, 0.5)';
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(measureX, this.scrollY, measureWidth, height);
+                }
+            }
+            
+            draw() {
+                if (!this.dirty) return;
+                
+                const ctx = this.ctx;
+                const width = this.canvas.width;
+                const height = this.canvas.height;
+                
+                if (width === 0 || height === 0) {
+                    console.warn('Canvas has zero dimensions');
+                    return;
+                }
+                
+                // Clear canvas
+                ctx.fillStyle = this.colors.background;
+                ctx.fillRect(0, 0, width, height);
+                
+                // Set up clipping for scrollable area
+                ctx.save();
+                ctx.beginPath();
+                ctx.rect(0, 0, width, height);
+                ctx.clip();
+                
+                // Draw scrollable content
+                ctx.save();
+                ctx.translate(-this.scrollX, -this.scrollY);
+                
+                // Draw grid background
+                ctx.fillStyle = this.colors.background;
+                ctx.fillRect(this.pianoKeyWidth, 0, this.totalWidth, this.numKeys * this.noteHeight);
+                
+                // Draw grid and notes
+                this.drawGrid(ctx, width, height);
+                this.updateVisibleNotes();
+                this.drawNotes(ctx);
+                this.drawPlayhead(ctx, height);
+                
+                ctx.restore();
+                
+                // Draw fixed piano keys on top
+                ctx.save();
+                ctx.translate(0, -this.scrollY);
+                
+                const startKey = Math.floor(this.scrollY / this.noteHeight);
+                const endKey = Math.ceil((this.scrollY + height) / this.noteHeight);
+                this.drawPianoKeys(ctx, startKey, endKey);
+                
+                ctx.restore();
+                ctx.restore();
+                
+                // Draw selection box
+                if ((this.isSelecting || this.isDeleteSelecting) && this.selectionBox) {
+                    ctx.strokeStyle = this.isDeleteSelecting ? 'rgba(255, 100, 100, 0.5)' : 'rgba(100, 200, 255, 0.5)';
+                    ctx.fillStyle = this.isDeleteSelecting ? 'rgba(255, 100, 100, 0.1)' : 'rgba(100, 200, 255, 0.1)';
+                    ctx.lineWidth = 1;
+                    
+                    const x = Math.min(this.selectionBox.x1, this.selectionBox.x2) - this.scrollX;
+                    const y = Math.min(this.selectionBox.y1, this.selectionBox.y2) - this.scrollY;
+                    const w = Math.abs(this.selectionBox.x2 - this.selectionBox.x1);
+                    const h = Math.abs(this.selectionBox.y2 - this.selectionBox.y1);
+                    
+                    ctx.fillRect(x, y, w, h);
+                    ctx.strokeRect(x, y, w, h);
+                }
+                
+                // Draw FPS in upper right corner
+                if (this.showFPS) {
+                    ctx.fillStyle = this.colors.text;
+                    ctx.font = '12px Arial';
+                    ctx.textAlign = 'right';
+                    ctx.fillText(`FPS: ${this.fps}`, width - 10, 20);
+                    ctx.textAlign = 'left';
+                }
+                
+                this.dirty = false;
+                
+                // Update velocity bar and pan bar
+                if (window.velocityBar) {
+                    window.velocityBar.draw();
+                }
+                if (window.panBar) {
+                    window.panBar.draw();
+                }
+            }
+            
+            animate(currentTime) {
+                requestAnimationFrame((time) => this.animate(time));
+                
+                // Calculate FPS
+                if (currentTime) {
+                    const deltaTime = currentTime - this.lastFrameTime;
+                    this.frameCount++;
+                    
+                    if (this.frameCount % 30 === 0) {
+                        this.fps = Math.round(1000 / deltaTime);
+                    }
+                    
+                    this.lastFrameTime = currentTime;
+                }
+                
+                // Update playback
+                if (this.isPlaying) {
+                    const currentTime = performance.now();
+                    const elapsed = currentTime - this.measureStartTime;
+                    const measureDuration = this.measureDuration;
+                    
+                    // Update current measure based on elapsed time
+                    while (elapsed >= measureDuration) {
+                        // Handle looping
+                        if (this.loopEnabled) {
+                            this.currentMeasure++;
+                            if (this.currentMeasure >= this.loopEnd || this.currentMeasure >= this.totalMeasures) {
+                                this.currentMeasure = this.loopStart;
+                            }
+                        } else {
+                            this.currentMeasure = (this.currentMeasure + 1) % this.totalMeasures;
+                        }
+                        
+                        this.measureStartTime += measureDuration;
+                        // Recalculate elapsed for next iteration
+                        const newElapsed = currentTime - this.measureStartTime;
+                        if (newElapsed < measureDuration) break;
+                    }
+                    
+                    // Continuous follow mode update
+                    if (this.followMode) {
+                        this.scrollToPlayhead();
+                    }
+                    
+                    this.dirty = true;
+                }
+                
+                this.draw();
+            }
+            
+            play() {
+                // Resume audio context if suspended
+                if (this.audioContext.state === 'suspended') {
+                    this.audioContext.resume();
+                }
+                
+                this.isPlaying = true;
+                
+                // Rebuild note grouping once at start of playback (not every measure)
+                this.rebuildNoteGrouping();
+                
+                // If resuming from pause, recalculate timing
+                if (this.isPaused) {
+                    this.isPaused = false;
+                    this.measureStartTime = performance.now() - this.pausedElapsed;
+                } else {
+                    // Starting fresh - always start from the beginning
+                    this.currentMeasure = 0;
+                    this.measureStartTime = performance.now();
+                    this.playingNotes = new Map();
+                    // Direct Web Audio scheduling, no need for Set
+                }
+                
+                // Update button icon
+                document.getElementById('playIcon').style.display = 'none';
+                document.getElementById('pauseIcon').style.display = 'block';
+                
+                // Schedule all notes immediately
+                this.scheduleAllNotes();
+            }
+            
+            pause() {
+                this.isPlaying = false;
+                this.isPaused = true;
+                this.pausedElapsed = performance.now() - this.measureStartTime;
+                
+                this.clearScheduledNotes();
+                
+                // Update button icon
+                document.getElementById('playIcon').style.display = 'block';
+                document.getElementById('pauseIcon').style.display = 'none';
+                
+                this.dirty = true;
+            }
+            
+            stop() {
+                this.isPlaying = false;
+                this.isPaused = false;
+                this.pausedElapsed = 0;
+                this.currentMeasure = 0;
+                this.dirty = true;
+                
+                this.clearScheduledNotes();
+                
+                // Clear scheduling state
+                this.lastScheduledEndTime = undefined;
+                this.lastScheduledMeasure = undefined;
+                this.playbackStartTime = undefined;
+                this.playbackStartMeasure = undefined;
+                
+                // Clear next schedule timeout
+                if (this.nextScheduleTimeout) {
+                    clearTimeout(this.nextScheduleTimeout);
+                    this.nextScheduleTimeout = null;
+                }
+                
+                // Stop all playing Web Audio sources
+                for (const [note, noteData] of this.playingNotes) {
+                    try {
+                        noteData.source.stop();
+                        noteData.source.disconnect();
+                        noteData.gain.disconnect();
+                        noteData.panner.disconnect();
+                    } catch (e) {
+                        // Source might already be stopped
+                    }
+                }
+                this.playingNotes.clear();
+                
+                this.stopAllNotes();
+                
+                // Update button icon
+                document.getElementById('playIcon').style.display = 'block';
+                document.getElementById('pauseIcon').style.display = 'none';
+            }
+            
+            scheduleAllNotes() {
+                if (!this.isPlaying) return;
+                
+                const measureWidth = this.beatsPerMeasure * this.gridWidth;
+                const beatDuration = this.beatDuration / 1000; // Convert to seconds for Web Audio
+                const lookAheadTime = 0.25; // Schedule 250ms in advance
+                const scheduleAheadTime = 2.0; // Schedule 2 seconds ahead
+                
+                const currentTime = this.audioContext.currentTime;
+                const scheduleUntilTime = currentTime + scheduleAheadTime;
+                
+                // Initialize scheduling state if needed
+                const isFirstCall = this.lastScheduledEndTime === undefined;
+                if (isFirstCall) {
+                    // Record the start time of playback with look-ahead
+                    this.playbackStartTime = currentTime + lookAheadTime;
+                    this.playbackStartMeasure = this.currentMeasure;
+                    this.lastScheduledEndTime = currentTime + lookAheadTime;
+                    this.lastScheduledMeasure = this.currentMeasure;
+                }
+                
+                // Start scheduling from where we left off
+                let scheduleTime = this.lastScheduledEndTime;
+                let currentScheduleMeasure = this.lastScheduledMeasure;
+                
+                // If we've fallen behind significantly, reset
+                if (scheduleTime < currentTime - 1.0) {
+                    console.warn('Scheduler fell behind, resetting...');
+                    scheduleTime = currentTime;
+                    // Recalculate current measure based on actual elapsed time
+                    const actualElapsed = currentTime - this.playbackStartTime;
+                    const measuresElapsed = Math.floor(actualElapsed / (this.measureDuration / 1000));
+                    currentScheduleMeasure = this.playbackStartMeasure + measuresElapsed;
+                }
+                
+                while (scheduleTime < scheduleUntilTime) {
+                    // Handle looping for display measure
+                    let displayMeasure = currentScheduleMeasure;
+                    if (this.loopEnabled) {
+                        while (displayMeasure >= this.loopEnd) {
+                            displayMeasure = this.loopStart + (displayMeasure - this.loopEnd) % (this.loopEnd - this.loopStart);
+                        }
+                    } else {
+                        displayMeasure = displayMeasure % this.totalMeasures;
+                    }
+                    
+                    const measureStartX = this.pianoKeyWidth + displayMeasure * measureWidth;
+                    const measureStartTime = scheduleTime;
+                    
+                    // Get notes for this measure
+                    const notesInMeasure = this.notesByMeasure.get(displayMeasure) || [];
+                    
+                    for (const note of notesInMeasure) {
+                        const noteOffsetX = note.x - measureStartX;
+                        
+                        // Only schedule if note starts in this measure
+                        if (noteOffsetX >= 0 && noteOffsetX < measureWidth) {
+                            const noteOffsetTime = (noteOffsetX / this.gridWidth) * beatDuration;
+                            const noteStartTime = measureStartTime + noteOffsetTime;
+                            
+                            // Schedule the note
+                            if (noteStartTime >= currentTime - 0.01) { // Small tolerance for notes just passed
+                                // Direct scheduling without setTimeout for better accuracy
+                                this.playNoteAtTime(note, noteStartTime);
+                            }
+                        }
+                    }
+                    
+                    // Move to next measure
+                    scheduleTime += this.measureDuration / 1000;
+                    currentScheduleMeasure++;
+                }
+                
+                // Remember where we ended scheduling
+                this.lastScheduledEndTime = scheduleTime;
+                this.lastScheduledMeasure = currentScheduleMeasure;
+                
+                // Schedule next update
+                if (this.nextScheduleTimeout) {
+                    clearTimeout(this.nextScheduleTimeout);
+                }
+                this.nextScheduleTimeout = setTimeout(() => {
+                    if (this.isPlaying) {
+                        this.scheduleAllNotes();
+                    }
+                }, 100); // Check every 100ms for better timing accuracy
+            }
+            
+            playNoteAtTime(note, startTime) {
+                const audioTime = Math.max(startTime, this.audioContext.currentTime);
+                
+                // Use Web Audio API scheduling instead of setTimeout
+                this.loadSample(note.instrument || this.currentSample).then(buffer => {
+                    if (!buffer || !this.isPlaying) return;
+                    
+                    const source = this.audioContext.createBufferSource();
+                    const gain = this.audioContext.createGain();
+                    const panner = this.audioContext.createStereoPanner();
+                    
+                    source.buffer = buffer;
+                    source.connect(gain);
+                    gain.connect(panner);
+                    panner.connect(this.masterGain);
+                    
+                    // Set parameters
+                    panner.pan.value = (note.pan || 0) / 100;
+                    
+                    const isDrum = (note.instrument || this.currentSample).startsWith('ORG_D');
+                    
+                    // Calculate playback rate
+                    if (isDrum) {
+                        let drumKey;
+                        if (note.originalDrumKey !== undefined) {
+                            // Use the original drum key from the org file
+                            drumKey = note.originalDrumKey;
+                        } else {
+                            // For manually placed drums, convert from 72edo
+                            drumKey = Math.round(note.key / 6); // Convert 72edo to semitone value
+                            drumKey = Math.max(0, Math.min(255, drumKey));
+                        }
+                        const drumFreq = drumKey * 800 + 100;
+                        const baseDrumFreq = 22050;
+                        source.playbackRate.value = drumFreq / baseDrumFreq;
+                    } else {
+                        const freq = this.getFrequency(note.key);
+                        const baseKey = 4 * this.notesPerOctave;
+                        const baseFreq = this.getFrequency(baseKey);
+                        source.playbackRate.value = (freq / baseFreq) * 2 * Math.sqrt(2);
+                    }
+                    
+                    // Set volume
+                    const orgVol = note.velocity * 2;
+                    let authenticVolume = Math.pow(10, ((orgVol - 255) * 8) / 2000);
+                    
+                    // Drums need volume boost to match original
+                    if (isDrum) {
+                        authenticVolume *= 1.5; // Boost drum volume
+                    }
+                    
+                    gain.gain.setValueAtTime(authenticVolume, audioTime);
+                    
+                    // Configure looping and envelope
+                    if (isDrum) {
+                        // Drums are always one-shot
+                        source.loop = false;
+                        
+                        // Simple envelope - drums play at full volume until they naturally end
+                        // No artificial envelope manipulation
+                        gain.gain.setValueAtTime(authenticVolume, audioTime);
+                    } else {
+                        // Melodic samples are waveforms and MUST loop to produce sound
+                        source.loop = true;
+                        source.loopStart = 0;
+                        source.loopEnd = buffer.duration;
+                        
+                        // Melodic envelope based on pipi
+                        if (note.pipi !== 0) {
+                            // With pipi: smooth attack
+                            gain.gain.setValueAtTime(0, audioTime);
+                            gain.gain.linearRampToValueAtTime(authenticVolume, audioTime + 0.01); // 10ms attack
+                        } else {
+                            // No pipi: immediate attack
+                            gain.gain.setValueAtTime(authenticVolume, audioTime);
+                        }
+                    }
+                    
+                    // Start at precise time
+                    source.start(audioTime);
+                    
+                    // Schedule stop
+                    const noteDuration = (note.width / this.gridWidth) * this.beatDuration / 1000;
+                    
+                    if (isDrum) {
+                        // Drums play their entire sample, ignoring note duration
+                        // This matches the original Organya behavior
+                        // Since loop is false, the source will automatically stop when it reaches the end of the buffer
+                        // No need to call stop() - let the drum sample play to its natural end
+                    } else {
+                        // Melodic notes stop at note duration with optional decay
+                        source.stop(audioTime + noteDuration);
+                        
+                        if (note.pipi === 0) {
+                            // No pipi: quick fadeout
+                            gain.gain.setValueAtTime(authenticVolume, audioTime + noteDuration - 0.02);
+                            gain.gain.exponentialRampToValueAtTime(0.001, audioTime + noteDuration);
+                        }
+                        // With pipi: natural decay (no explicit fade)
+                    }
+                    
+                    // Store for potential manual stopping
+                    this.playingNotes.set(note, { source, gain, panner, isDrum });
+                });
+            }
+            
+            playMeasureNotes() {
+                // Keep this method for compatibility but it now does nothing
+                // All scheduling is handled by scheduleAllNotes
+            }
+            
+            
+            setGridSnap(enabled) {
+                this.gridSnap = enabled;
+            }
+            
+            setVolume(volume) {
+                this.masterGain.gain.value = volume / 100;
+            }
+            
+            async setWaveform(sampleName) {
+                this.currentSample = sampleName;
+                await this.loadSample(sampleName);
+                // Don't update existing notes - they keep their original instruments
+                
+                // Update color indicator
+                const color = this.getInstrumentColor(sampleName);
+                const indicator = document.getElementById('instrumentColorIndicator');
+                if (indicator) {
+                    indicator.style.backgroundColor = color.note;
+                    indicator.style.borderColor = color.border;
+                }
+                
+                this.dirty = true;
+            }
+            
+            // Pre-compute note groups by measure for performance
+            rebuildNoteGrouping() {
+                if (!this.needsNoteGrouping) return;
+                
+                this.notesByMeasure.clear();
+                this.adjacentNoteCache.clear();
+                
+                const measureWidth = this.beatsPerMeasure * this.gridWidth;
+                
+                for (const note of this.notes) {
+                    // Calculate which measures this note affects
+                    const startMeasure = Math.floor((note.x - this.pianoKeyWidth) / measureWidth);
+                    const endMeasure = Math.floor((note.x + note.width - this.pianoKeyWidth) / measureWidth);
+                    
+                    // Add note to all affected measures
+                    for (let measure = Math.max(0, startMeasure); measure <= Math.min(this.totalMeasures - 1, endMeasure); measure++) {
+                        if (!this.notesByMeasure.has(measure)) {
+                            this.notesByMeasure.set(measure, []);
+                        }
+                        this.notesByMeasure.get(measure).push(note);
+                    }
+                    
+                    // Pre-compute adjacent note lookups
+                    const noteEndX = note.x + note.width;
+                    const adjacentNote = this.notes.find(otherNote => 
+                        otherNote !== note && 
+                        otherNote.key === note.key && 
+                        Math.abs(otherNote.x - noteEndX) < 1
+                    );
+                    if (adjacentNote) {
+                        this.adjacentNoteCache.set(note, adjacentNote);
+                    }
+                }
+                
+                this.needsNoteGrouping = false;
+            }
+            
+            // Auto-scroll to keep playhead visible
+            scrollToPlayhead() {
+                if (!this.isPlaying) return;
+                
+                // Keep the current measure at the left edge of the view
+                const measureWidth = this.beatsPerMeasure * this.gridWidth;
+                const measureStartX = this.pianoKeyWidth + this.currentMeasure * measureWidth;
+                
+                // Target scroll position: current measure should be at left edge (after piano keys)
+                const targetScrollX = Math.max(0, measureStartX - this.pianoKeyWidth);
+                
+                // Snap immediately to target position
+                if (this.scrollX !== targetScrollX) {
+                    this.scrollX = targetScrollX;
+                    this.dirty = true;
+                }
+            }
+            
+            // Set playback tempo
+            setTempo(bpm, beatsPerMeasure = 4) {
+                this.currentBPM = bpm;
+                this.beatDuration = 60000 / bpm; // ms per beat
+                this.measureDuration = this.beatDuration * beatsPerMeasure; // ms per measure
+                this.beatsPerMeasure = beatsPerMeasure;
+                console.log(`Tempo set to ${bpm} BPM (${this.beatDuration.toFixed(1)}ms/beat, ${this.measureDuration.toFixed(1)}ms/measure)`);
+            }
+            
+            // Org Maker file import functionality
+            async importOrgFile(file) {
+                try {
+                    const arrayBuffer = await file.arrayBuffer();
+                    const song = new OrgSong(arrayBuffer);
+                    this.convertOrgToNotes(song);
+                    this.dirty = true;
+                } catch (error) {
+                    console.error('Error importing Org file:', error);
+                    alert('Error importing Org file: ' + error.message);
+                }
+            }
+            
+            convertOrgToNotes(song) {
+                // Clear existing notes
+                this.notes = [];
+                this.selectedNotes.clear();
+                this.needsNoteGrouping = true; // Invalidate cache
+                
+                // Calculate timing conversion based on Org's beat structure
+                // Org: meas[1] = ticks per beat, wait = ms per tick
+                // Piano roll: gridWidth = pixels per beat
+                const ticksPerBeat = song.meas[1];
+                const msPerBeat = song.wait * ticksPerBeat;
+                const bpm = Math.round(60000 / msPerBeat);
+                
+                // Calculate song length and ensure piano roll is long enough
+                const songLengthTicks = song.end - song.start;
+                const songLengthBeats = songLengthTicks / ticksPerBeat;
+                const songLengthMeasures = Math.ceil(songLengthBeats / song.meas[0]);
+                
+                // Set the tempo to match the imported song
+                this.setTempo(bpm, song.meas[0]);
+                
+                // Set loop points from the org file
+                // Convert tick positions to measure numbers
+                const loopStartBeats = song.start / ticksPerBeat;
+                const loopEndBeats = song.end / ticksPerBeat;
+                this.loopStart = Math.floor(loopStartBeats / song.meas[0]);
+                this.loopEnd = Math.ceil(loopEndBeats / song.meas[0]);
+                this.loopEnabled = true; // Enable loop when importing org files
+                
+                // Update loop UI inputs
+                const loopStartInput = document.getElementById('loopStartInput');
+                const loopEndInput = document.getElementById('loopEndInput');
+                const loopBtn = document.getElementById('loopBtn');
+                if (loopStartInput) loopStartInput.value = this.loopStart + 1; // UI uses 1-based indexing
+                if (loopEndInput) loopEndInput.value = this.loopEnd + 1;
+                if (loopBtn) loopBtn.classList.add('active'); // Show loop as enabled
+                
+                // Extend piano roll if necessary (with some padding)  
+                const requiredMeasures = Math.max(songLengthMeasures + 8, 32); // Minimum 32, add 8 for padding
+                if (requiredMeasures > this.totalMeasures) {
+                    this.totalMeasures = requiredMeasures;
+                    this.totalWidth = this.pianoKeyWidth + (this.totalMeasures * this.beatsPerMeasure * this.gridWidth);
+                }
+                
+                // Convert each track
+                for (let trackIndex = 0; trackIndex < 16; trackIndex++) {
+                    const track = song.tracks[trackIndex];
+                    const instrument = song.instruments[trackIndex];
+                    
+                    if (track.length === 0) continue;
+                    
+                    // Determine instrument name based on track type
+                    let instrumentName;
+                    if (trackIndex < 8) {
+                        // Melodic tracks use wave samples
+                        instrumentName = `ORG_M${instrument.wave.toString().padStart(2, '0')}`;
+                    } else {
+                        // Drum tracks
+                        instrumentName = `ORG_D${(trackIndex - 8).toString().padStart(2, '0')}`;
+                    }
+                    
+                    // Convert each note in the track
+                    for (const orgNote of track) {
+                        if (orgNote.key === 255) continue; // Skip empty notes
+                        
+                        // Convert position: Org ticks → beats → piano roll pixels
+                        const beats = orgNote.pos / ticksPerBeat;
+                        const x = this.pianoKeyWidth + (beats * this.gridWidth);
+                        
+                        // Convert key to 72edo
+                        let key72edo;
+                        if (trackIndex < 8) {
+                            // Melodic tracks: convert 12-tone to 72edo
+                            key72edo = orgNote.key * 6; // Each semitone = 6 microtones
+                        } else {
+                            // Drum tracks: also use 72edo scale, same as melodic
+                            // The drum key (0-255) represents the actual pitch to play
+                            // Map it to the same 72edo scale for consistency
+                            key72edo = orgNote.key * 6; // Treat drum keys like MIDI notes
+                        }
+                        
+                        // Convert to piano roll Y position (inverted)
+                        const y = (this.numKeys - 1 - key72edo) * this.noteHeight;
+                        
+                        // Convert length: Org ticks → beats → piano roll pixels
+                        const lengthBeats = orgNote.len / ticksPerBeat;
+                        const width = Math.max(this.gridWidth / 8, lengthBeats * this.gridWidth);
+                        
+                        // Convert volume (0-255) to velocity (0-127)
+                        const velocity = Math.round((orgNote.vol / 255) * 127);
+                        
+                        // Convert pan (0-12) to pan (-1 to 1)
+                        const pan = (orgNote.pan - 6) / 6;
+                        
+                        const note = {
+                            x: x,
+                            y: y,
+                            width: width,
+                            height: this.noteHeight,
+                            key: key72edo,
+                            velocity: velocity,
+                            pan: pan,
+                            instrument: instrumentName,
+                            pipi: instrument.pipi, // Store pipi for all tracks
+                            trackIndex: trackIndex, // Store track index for envelope handling
+                            freq: instrument.freq, // Store frequency adjustment
+                            originalDrumKey: trackIndex >= 8 ? orgNote.key : undefined // Store original drum key for pitch
+                        };
+                        
+                        this.notes.push(note);
+                    }
+                }
+                
+                console.log(`Imported ${this.notes.length} notes from Org file (${song.meas[0]}/${song.meas[1]} time, ${bpm} BPM, ${songLengthMeasures} measures, extended to ${this.totalMeasures})`);
+            }
+        }
+        
+        // Org Maker Song Parser Class
+        class OrgSong {
+            constructor(data) {
+                const view = new DataView(data);
+                let p = 0;
+
+                // Check magic "Org-"
+                const org1 = view.getUint32(p, true); p += 4;
+                if (org1 !== 0x2d67724f) {
+                    throw new Error("Invalid Org file: missing magic number");
+                }
+
+                // Check version "02"
+                const orgVersion = view.getUint16(p, true); p += 2;
+                if (orgVersion !== 0x3230) {
+                    throw new Error("Invalid Org file: unsupported version");
+                }
+
+                this.wait = view.getUint16(p, true); p += 2;
+                this.meas = [view.getUint8(p++, true), view.getUint8(p++, true)];
+                this.start = view.getInt32(p, true); p += 4;
+                this.end = view.getInt32(p, true); p += 4;
+
+                this.instruments = [];
+
+                // Read instrument data
+                for (let i = 0; i < 16; i++) {
+                    const freq = view.getInt16(p, true); p += 2;
+                    const wave = view.getUint8(p, true); p++;
+                    const pipi = view.getUint8(p, true); p++;
+                    const notes = view.getUint16(p, true); p += 2;
+
+                    this.instruments[i] = { freq, wave, pipi, notes };
+                }
+
+                this.tracks = [];
+                
+                // Read track data
+                for (let i = 0; i < 16; i++) {
+                    const track = [];
+                    track.length = this.instruments[i].notes;
+
+                    // Initialize notes
+                    for (let j = 0; j < this.instruments[i].notes; j++) {
+                        track[j] = { pos: 0, key: 0, len: 0, vol: 0, pan: 0 };
+                    }
+
+                    // Read positions
+                    for (let j = 0; j < this.instruments[i].notes; j++) {
+                        track[j].pos = view.getInt32(p, true); p += 4;
+                    }
+
+                    // Read keys
+                    for (let j = 0; j < this.instruments[i].notes; j++) {
+                        track[j].key = view.getUint8(p, true); p++;
+                    }
+
+                    // Read lengths
+                    for (let j = 0; j < this.instruments[i].notes; j++) {
+                        track[j].len = view.getUint8(p, true); p++;
+                    }
+
+                    // Read volumes
+                    for (let j = 0; j < this.instruments[i].notes; j++) {
+                        track[j].vol = view.getUint8(p, true); p++;
+                    }
+
+                    // Read panning
+                    for (let j = 0; j < this.instruments[i].notes; j++) {
+                        track[j].pan = view.getUint8(p, true); p++;
+                    }
+
+                    this.tracks[i] = track;
+                }
+            }
+        }
+        
+        // Velocity Bar Class
+        class VelocityBar {
+            constructor(canvas, pianoRoll) {
+                this.canvas = canvas;
+                this.ctx = canvas.getContext('2d');
+                this.pianoRoll = pianoRoll;
+                this.draggingNote = null;
+                this.hoveredNote = null;
+                
+                this.resize();
+                this.setupEventListeners();
+                this.draw();
+            }
+            
+            resize() {
+                const container = this.canvas.parentElement;
+                this.canvas.width = container.clientWidth;
+                this.canvas.height = container.clientHeight;
+                this.draw();
+            }
+            
+            setupEventListeners() {
+                window.addEventListener('resize', () => this.resize());
+                
+                this.canvas.addEventListener('mousedown', (e) => this.onMouseDown(e));
+                this.canvas.addEventListener('mousemove', (e) => this.onMouseMove(e));
+                window.addEventListener('mouseup', () => this.onMouseUp());
+                this.canvas.addEventListener('mouseleave', () => this.onMouseLeave());
+                
+                // Sync with piano roll scroll
+                this.pianoRoll.canvas.addEventListener('wheel', () => this.draw());
+            }
+            
+            getMouseX(e) {
+                const rect = this.canvas.getBoundingClientRect();
+                return e.clientX - rect.left + this.pianoRoll.scrollX;
+            }
+            
+            getNotesAt(x) {
+                const notes = [];
+                for (const note of this.pianoRoll.notes) {
+                    if (x >= note.x && x <= note.x + note.width) {
+                        notes.push(note);
+                    }
+                }
+                // Sort by velocity (highest first) to make selection predictable
+                return notes.sort((a, b) => b.velocity - a.velocity);
+            }
+            
+            getNoteAt(x, y) {
+                const notes = this.getNotesAt(x);
+                if (notes.length === 0) return null;
+                
+                // If we have a y coordinate, try to find the note closest to that velocity
+                if (y !== undefined) {
+                    const height = this.canvas.height;
+                    const targetVelocity = Math.round((1 - y / height) * 127);
+                    
+                    let closestNote = notes[0];
+                    let closestDiff = Math.abs(notes[0].velocity - targetVelocity);
+                    
+                    for (const note of notes) {
+                        const diff = Math.abs(note.velocity - targetVelocity);
+                        if (diff < closestDiff) {
+                            closestDiff = diff;
+                            closestNote = note;
+                        }
+                    }
+                    return closestNote;
+                }
+                
+                // Otherwise return the note with highest velocity
+                return notes[0];
+            }
+            
+            onMouseDown(e) {
+                const rect = this.canvas.getBoundingClientRect();
+                const x = this.getMouseX(e);
+                const y = e.clientY - rect.top;
+                const note = this.getNoteAt(x, y);
+                
+                if (note) {
+                    this.draggingNote = note;
+                    this.updateNoteVelocity(e);
+                }
+            }
+            
+            onMouseMove(e) {
+                const x = this.getMouseX(e);
+                
+                if (this.draggingNote) {
+                    this.updateNoteVelocity(e);
+                } else {
+                    // Update hover
+                    const note = this.getNoteAt(x);
+                    if (note !== this.hoveredNote) {
+                        this.hoveredNote = note;
+                        this.canvas.style.cursor = note ? 'ns-resize' : 'default';
+                        this.draw();
+                    }
+                }
+            }
+            
+            onMouseUp() {
+                this.draggingNote = null;
+            }
+            
+            onMouseLeave() {
+                this.hoveredNote = null;
+                this.canvas.style.cursor = 'default';
+                this.draw();
+            }
+            
+            updateNoteVelocity(e) {
+                if (!this.draggingNote) return;
+                
+                const rect = this.canvas.getBoundingClientRect();
+                const y = e.clientY - rect.top;
+                const ratio = 1 - Math.max(0, Math.min(1, y / this.canvas.height));
+                const newVelocity = Math.round(ratio * 127);
+                
+                // Update single note or all selected notes
+                if (this.pianoRoll.selectedNotes.has(this.draggingNote)) {
+                    for (const note of this.pianoRoll.selectedNotes) {
+                        note.velocity = newVelocity;
+                    }
+                } else {
+                    this.draggingNote.velocity = newVelocity;
+                }
+                
+                // Velocity updated (removed display)
+                
+                this.pianoRoll.dirty = true;
+                this.draw();
+            }
+            
+            draw() {
+                const ctx = this.ctx;
+                const width = this.canvas.width;
+                const height = this.canvas.height;
+                
+                // Clear
+                ctx.fillStyle = '#222';
+                ctx.fillRect(0, 0, width, height);
+                
+                // Set up clipping region for the grid area
+                ctx.save();
+                ctx.beginPath();
+                ctx.rect(0, 0, width, height);
+                ctx.clip();
+                
+                // Translate for scrolling
+                ctx.translate(-this.pianoRoll.scrollX, 0);
+                
+                // Draw grid background
+                ctx.fillStyle = '#222';
+                ctx.fillRect(this.pianoRoll.pianoKeyWidth, 0, this.pianoRoll.totalWidth, height);
+                
+                // Draw grid lines
+                ctx.strokeStyle = '#333';
+                ctx.lineWidth = 1;
+                
+                // Horizontal lines at 25%, 50%, 75%
+                for (let i = 1; i < 4; i++) {
+                    const y = (i / 4) * height;
+                    ctx.beginPath();
+                    ctx.moveTo(this.pianoRoll.pianoKeyWidth, y);
+                    ctx.lineTo(this.pianoRoll.totalWidth, y);
+                    ctx.stroke();
+                }
+                
+                // Draw measure lines
+                const measureWidth = this.pianoRoll.beatsPerMeasure * this.pianoRoll.gridWidth;
+                ctx.strokeStyle = '#444';
+                ctx.lineWidth = 2;
+                
+                for (let i = 0; i <= this.pianoRoll.totalMeasures; i++) {
+                    const x = this.pianoRoll.pianoKeyWidth + i * measureWidth;
+                    ctx.beginPath();
+                    ctx.moveTo(x, 0);
+                    ctx.lineTo(x, height);
+                    ctx.stroke();
+                }
+                
+                // Draw beat lines
+                ctx.strokeStyle = '#333';
+                ctx.lineWidth = 1;
+                for (let i = 0; i <= this.pianoRoll.totalMeasures * this.pianoRoll.beatsPerMeasure; i++) {
+                    const x = this.pianoRoll.pianoKeyWidth + i * this.pianoRoll.gridWidth;
+                    if (i % this.pianoRoll.beatsPerMeasure !== 0) {
+                        ctx.beginPath();
+                        ctx.moveTo(x, 0);
+                        ctx.lineTo(x, height);
+                        ctx.stroke();
+                    }
+                }
+                
+                // Group notes by position for overlap handling
+                const noteGroups = new Map();
+                for (const note of this.pianoRoll.notes) {
+                    const key = `${note.x}-${note.width}`;
+                    if (!noteGroups.has(key)) {
+                        noteGroups.set(key, []);
+                    }
+                    noteGroups.get(key).push(note);
+                }
+                
+                // Draw velocity bars for each note
+                for (const [key, notes] of noteGroups) {
+                    const noteX = notes[0].x;
+                    const noteEndX = notes[0].x + notes[0].width;
+                    
+                    // Only draw if visible
+                    if (noteEndX >= this.pianoRoll.scrollX && noteX <= this.pianoRoll.scrollX + width) {
+                        // Sort notes by velocity for consistent ordering
+                        notes.sort((a, b) => a.velocity - b.velocity);
+                        
+                        // Draw all notes at this position
+                        for (let i = 0; i < notes.length; i++) {
+                            const note = notes[i];
+                            const barHeight = (note.velocity / 127) * height;
+                            const barY = height - barHeight;
+                            const barWidth = 8; // Fixed width for all velocity bars
+                            
+                            // Calculate offset for overlapping notes
+                            const offsetX = notes.length > 1 ? (i - (notes.length - 1) / 2) * 10 : 0;
+                            
+                            // Bar color
+                            let barColor;
+                            if (this.pianoRoll.selectedNotes.has(note)) {
+                                barColor = '#6ab7ff';
+                            } else if (note === this.hoveredNote) {
+                                barColor = '#5a9adf';
+                            } else {
+                                barColor = '#4a9eff';
+                            }
+                            
+                            // Draw velocity bar removed for better visibility
+                            
+                            // Draw velocity point
+                            const pointX = noteX + barWidth / 2 + offsetX;
+                            const pointY = barY;
+                            const pointRadius = 4;
+                            
+                            ctx.fillStyle = '#fff';
+                            ctx.beginPath();
+                            ctx.arc(pointX, pointY, pointRadius, 0, Math.PI * 2);
+                            ctx.fill();
+                            
+                            // Draw outline
+                            ctx.strokeStyle = barColor;
+                            ctx.lineWidth = 2;
+                            ctx.stroke();
+                            
+                            // Overlap indicator removed for cleaner appearance
+                        }
+                    }
+                }
+                
+                ctx.restore();
+                
+                // Draw piano key section on top (doesn't scroll)
+                ctx.fillStyle = '#2a2a2a';
+                ctx.fillRect(0, 0, this.pianoRoll.pianoKeyWidth, height);
+                
+                // Draw vertical separator line
+                ctx.strokeStyle = this.pianoRoll.colors.keyBorder;
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(this.pianoRoll.pianoKeyWidth, 0);
+                ctx.lineTo(this.pianoRoll.pianoKeyWidth, height);
+                ctx.stroke();
+            }
+        }
+        
+        // Pan Bar Class
+        class PanBar {
+            constructor(canvas, pianoRoll) {
+                this.canvas = canvas;
+                this.ctx = canvas.getContext('2d');
+                this.pianoRoll = pianoRoll;
+                this.draggingNote = null;
+                this.hoveredNote = null;
+                
+                this.resize();
+                this.setupEventListeners();
+                this.draw();
+            }
+            
+            resize() {
+                const container = this.canvas.parentElement;
+                this.canvas.width = container.clientWidth;
+                this.canvas.height = container.clientHeight;
+                this.draw();
+            }
+            
+            setupEventListeners() {
+                window.addEventListener('resize', () => this.resize());
+                
+                this.canvas.addEventListener('mousedown', (e) => this.onMouseDown(e));
+                this.canvas.addEventListener('mousemove', (e) => this.onMouseMove(e));
+                window.addEventListener('mouseup', () => this.onMouseUp());
+                this.canvas.addEventListener('mouseleave', () => this.onMouseLeave());
+                
+                // Sync with piano roll scroll
+                this.pianoRoll.canvas.addEventListener('wheel', () => this.draw());
+            }
+            
+            getMouseX(e) {
+                const rect = this.canvas.getBoundingClientRect();
+                return e.clientX - rect.left + this.pianoRoll.scrollX;
+            }
+            
+            getNotesAt(x) {
+                const notes = [];
+                for (const note of this.pianoRoll.notes) {
+                    if (x >= note.x && x <= note.x + note.width) {
+                        notes.push(note);
+                    }
+                }
+                return notes;
+            }
+            
+            getNoteAt(x, y) {
+                const notes = this.getNotesAt(x);
+                if (notes.length === 0) return null;
+                
+                // If we have a y coordinate, try to find the note closest to that pan position
+                if (y !== undefined) {
+                    const height = this.canvas.height;
+                    const targetPan = Math.round(((y - height / 2) / (height / 2)) * 100);
+                    
+                    let closestNote = notes[0];
+                    let closestDiff = Math.abs((notes[0].pan || 0) - targetPan);
+                    
+                    for (const note of notes) {
+                        const diff = Math.abs((note.pan || 0) - targetPan);
+                        if (diff < closestDiff) {
+                            closestDiff = diff;
+                            closestNote = note;
+                        }
+                    }
+                    return closestNote;
+                }
+                
+                return notes[0];
+            }
+            
+            onMouseDown(e) {
+                const rect = this.canvas.getBoundingClientRect();
+                const x = this.getMouseX(e);
+                const y = e.clientY - rect.top;
+                const note = this.getNoteAt(x, y);
+                
+                if (note) {
+                    this.draggingNote = note;
+                    this.updateNotePan(e);
+                }
+            }
+            
+            onMouseMove(e) {
+                const x = this.getMouseX(e);
+                
+                if (this.draggingNote) {
+                    this.updateNotePan(e);
+                } else {
+                    // Update hover
+                    const note = this.getNoteAt(x);
+                    if (note !== this.hoveredNote) {
+                        this.hoveredNote = note;
+                        this.canvas.style.cursor = note ? 'ns-resize' : 'default';
+                        this.draw();
+                    }
+                }
+            }
+            
+            onMouseUp() {
+                this.draggingNote = null;
+            }
+            
+            onMouseLeave() {
+                this.hoveredNote = null;
+                this.canvas.style.cursor = 'default';
+                this.draw();
+            }
+            
+            updateNotePan(e) {
+                if (!this.draggingNote) return;
+                
+                const rect = this.canvas.getBoundingClientRect();
+                const y = e.clientY - rect.top;
+                const centerY = this.canvas.height / 2;
+                const pan = Math.round(((y - centerY) / centerY) * 100);
+                const newPan = Math.max(-100, Math.min(100, pan));
+                
+                // Update single note or all selected notes
+                if (this.pianoRoll.selectedNotes.has(this.draggingNote)) {
+                    for (const note of this.pianoRoll.selectedNotes) {
+                        note.pan = newPan;
+                    }
+                } else {
+                    this.draggingNote.pan = newPan;
+                }
+                
+                this.pianoRoll.dirty = true;
+                this.draw();
+            }
+            
+            draw() {
+                const ctx = this.ctx;
+                const width = this.canvas.width;
+                const height = this.canvas.height;
+                const centerY = height / 2;
+                
+                // Clear
+                ctx.fillStyle = '#222';
+                ctx.fillRect(0, 0, width, height);
+                
+                // Set up clipping region for the grid area
+                ctx.save();
+                ctx.beginPath();
+                ctx.rect(0, 0, width, height);
+                ctx.clip();
+                
+                // Translate for scrolling
+                ctx.translate(-this.pianoRoll.scrollX, 0);
+                
+                // Draw grid background
+                ctx.fillStyle = '#222';
+                ctx.fillRect(this.pianoRoll.pianoKeyWidth, 0, this.pianoRoll.totalWidth, height);
+                
+                // Draw center line
+                ctx.strokeStyle = '#666';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(this.pianoRoll.pianoKeyWidth, centerY);
+                ctx.lineTo(this.pianoRoll.totalWidth, centerY);
+                ctx.stroke();
+                
+                // Draw grid lines
+                ctx.strokeStyle = '#333';
+                ctx.lineWidth = 1;
+                
+                // Horizontal lines at 50% left and right
+                const quarterY = height / 4;
+                ctx.beginPath();
+                ctx.moveTo(this.pianoRoll.pianoKeyWidth, quarterY);
+                ctx.lineTo(this.pianoRoll.totalWidth, quarterY);
+                ctx.moveTo(this.pianoRoll.pianoKeyWidth, height - quarterY);
+                ctx.lineTo(this.pianoRoll.totalWidth, height - quarterY);
+                ctx.stroke();
+                
+                // Draw measure lines
+                const measureWidth = this.pianoRoll.beatsPerMeasure * this.pianoRoll.gridWidth;
+                ctx.strokeStyle = '#444';
+                ctx.lineWidth = 2;
+                
+                for (let i = 0; i <= this.pianoRoll.totalMeasures; i++) {
+                    const x = this.pianoRoll.pianoKeyWidth + i * measureWidth;
+                    ctx.beginPath();
+                    ctx.moveTo(x, 0);
+                    ctx.lineTo(x, height);
+                    ctx.stroke();
+                }
+                
+                // Draw beat lines
+                ctx.strokeStyle = '#333';
+                ctx.lineWidth = 1;
+                for (let i = 0; i <= this.pianoRoll.totalMeasures * this.pianoRoll.beatsPerMeasure; i++) {
+                    const x = this.pianoRoll.pianoKeyWidth + i * this.pianoRoll.gridWidth;
+                    if (i % this.pianoRoll.beatsPerMeasure !== 0) {
+                        ctx.beginPath();
+                        ctx.moveTo(x, 0);
+                        ctx.lineTo(x, height);
+                        ctx.stroke();
+                    }
+                }
+                
+                // Group notes by position for overlap handling
+                const noteGroups = new Map();
+                for (const note of this.pianoRoll.notes) {
+                    const key = `${note.x}-${note.width}`;
+                    if (!noteGroups.has(key)) {
+                        noteGroups.set(key, []);
+                    }
+                    noteGroups.get(key).push(note);
+                }
+                
+                // Draw pan indicators for each note
+                for (const [key, notes] of noteGroups) {
+                    const noteX = notes[0].x;
+                    const noteEndX = notes[0].x + notes[0].width;
+                    
+                    // Only draw if visible
+                    if (noteEndX >= this.pianoRoll.scrollX && noteX <= this.pianoRoll.scrollX + width) {
+                        // Sort notes by pan for consistent ordering
+                        notes.sort((a, b) => (a.pan || 0) - (b.pan || 0));
+                        
+                        // Draw all notes at this position
+                        for (let i = 0; i < notes.length; i++) {
+                            const note = notes[i];
+                            const pan = note.pan || 0;
+                            const panY = centerY + (pan / 100) * centerY;
+                            const barWidth = 8; // Fixed width for all pan bars
+                            
+                            // Calculate offset for overlapping notes
+                            const offsetX = notes.length > 1 ? (i - (notes.length - 1) / 2) * 10 : 0;
+                            
+                            // Bar color
+                            let barColor;
+                            if (this.pianoRoll.selectedNotes.has(note)) {
+                                barColor = '#6ab7ff';
+                            } else if (note === this.hoveredNote) {
+                                barColor = '#5a9adf';
+                            } else {
+                                barColor = '#4a9eff';
+                            }
+                            
+                            // Draw pan line removed for better visibility
+                            
+                            // Draw pan point
+                            const pointX = noteX + barWidth / 2 + offsetX;
+                            const pointY = panY;
+                            const pointRadius = 4;
+                            
+                            ctx.fillStyle = '#fff';
+                            ctx.beginPath();
+                            ctx.arc(pointX, pointY, pointRadius, 0, Math.PI * 2);
+                            ctx.fill();
+                            
+                            // Draw outline
+                            ctx.strokeStyle = barColor;
+                            ctx.lineWidth = 2;
+                            ctx.stroke();
+                        }
+                        
+                        // Overlap indicator removed for cleaner appearance
+                    }
+                }
+                
+                ctx.restore();
+                
+                // Draw piano key section on top (doesn't scroll)
+                ctx.fillStyle = '#2a2a2a';
+                ctx.fillRect(0, 0, this.pianoRoll.pianoKeyWidth, height);
+                
+                // Draw L/R labels
+                ctx.fillStyle = '#888';
+                ctx.font = '12px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('L', this.pianoRoll.pianoKeyWidth / 2, 15);
+                ctx.fillText('C', this.pianoRoll.pianoKeyWidth / 2, centerY + 4);
+                ctx.fillText('R', this.pianoRoll.pianoKeyWidth / 2, height - 8);
+                
+                // Draw vertical separator line
+                ctx.strokeStyle = this.pianoRoll.colors.keyBorder;
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(this.pianoRoll.pianoKeyWidth, 0);
+                ctx.lineTo(this.pianoRoll.pianoKeyWidth, height);
+                ctx.stroke();
+            }
+        }
+        
+        // Initialize
+        const canvas = document.getElementById('pianoRoll');
+        const pianoRoll = new PianoRoll(canvas);
+        
+        // Initialize pan bar
+        const panCanvas = document.getElementById('panCanvas');
+        const panBar = new PanBar(panCanvas, pianoRoll);
+        window.panBar = panBar;
+        
+        // Initialize velocity bar
+        const velocityCanvas = document.getElementById('velocityCanvas');
+        const velocityBar = new VelocityBar(velocityCanvas, pianoRoll);
+        window.velocityBar = velocityBar;
+        
+        // Sync UI with initial values
+        document.getElementById('volumeSlider').value = 30; // 0.3 * 100
+        
+        // Controls
+        document.getElementById('playBtn').addEventListener('click', () => {
+            if (pianoRoll.isPlaying) {
+                pianoRoll.pause();
+            } else {
+                pianoRoll.play();
+            }
+        });
+        document.getElementById('stopBtn').addEventListener('click', () => pianoRoll.stop());
+        document.getElementById('volumeSlider').addEventListener('input', (e) => pianoRoll.setVolume(parseInt(e.target.value)));
+        document.getElementById('waveformSelect').addEventListener('change', (e) => pianoRoll.setWaveform(e.target.value));
+        
+        // Loop controls
+        document.getElementById('loopBtn').addEventListener('click', () => {
+            pianoRoll.loopEnabled = !pianoRoll.loopEnabled;
+            document.getElementById('loopBtn').classList.toggle('active', pianoRoll.loopEnabled);
+            pianoRoll.dirty = true;
+        });
+        
+        document.getElementById('loopStartInput').addEventListener('change', (e) => {
+            const value = parseInt(e.target.value) - 1; // Convert to 0-based
+            pianoRoll.loopStart = Math.max(0, Math.min(pianoRoll.totalMeasures - 1, value));
+            if (pianoRoll.loopStart >= pianoRoll.loopEnd) {
+                pianoRoll.loopEnd = Math.min(pianoRoll.loopStart + 1, pianoRoll.totalMeasures);
+                document.getElementById('loopEndInput').value = pianoRoll.loopEnd + 1;
+            }
+            pianoRoll.dirty = true;
+        });
+        
+        document.getElementById('loopEndInput').addEventListener('change', (e) => {
+            const value = parseInt(e.target.value) - 1; // Convert to 0-based
+            pianoRoll.loopEnd = Math.max(1, Math.min(pianoRoll.totalMeasures, value));
+            if (pianoRoll.loopEnd <= pianoRoll.loopStart) {
+                pianoRoll.loopStart = Math.max(0, pianoRoll.loopEnd - 1);
+                document.getElementById('loopStartInput').value = pianoRoll.loopStart + 1;
+            }
+            pianoRoll.dirty = true;
+        });
+        
+        // Set initial color indicator
+        const initialColor = pianoRoll.getInstrumentColor(pianoRoll.currentSample);
+        const indicator = document.getElementById('instrumentColorIndicator');
+        if (indicator) {
+            indicator.style.backgroundColor = initialColor.note;
+            indicator.style.borderColor = initialColor.border;
+        }
+        
+        // Menu bar functionality
+        let activeMenu = null;
+        let showFPS = true;
+        
+        // Handle menu item clicks
+        document.querySelectorAll('.menu-item').forEach(item => {
+            item.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('Menu clicked:', item.querySelector('span').textContent);
+                const wasActive = item.classList.contains('active');
+                
+                // Close all menus
+                document.querySelectorAll('.menu-item').forEach(m => m.classList.remove('active'));
+                
+                if (!wasActive) {
+                    item.classList.add('active');
+                    activeMenu = item;
+                    console.log('Menu opened');
+                } else {
+                    activeMenu = null;
+                    console.log('Menu closed');
+                }
+            });
+            
+            // Handle hover when a menu is already open
+            item.addEventListener('mouseenter', () => {
+                if (activeMenu && activeMenu !== item) {
+                    document.querySelectorAll('.menu-item').forEach(m => m.classList.remove('active'));
+                    item.classList.add('active');
+                    activeMenu = item;
+                }
+            });
+        });
+        
+        // Close menus when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.menu-item')) {
+                document.querySelectorAll('.menu-item').forEach(m => m.classList.remove('active'));
+                activeMenu = null;
+            }
+        });
+        
+        // Handle menu option clicks
+        document.querySelectorAll('.menu-option').forEach(option => {
+            option.addEventListener('click', (e) => {
+                e.stopPropagation();
+                
+                // Ignore clicks on disabled items or submenus
+                if (option.classList.contains('disabled') || option.classList.contains('has-submenu')) {
+                    return;
+                }
+                
+                const id = option.id;
+                const orgPath = option.getAttribute('data-org');
+                
+                // Close menu
+                document.querySelectorAll('.menu-item').forEach(m => m.classList.remove('active'));
+                activeMenu = null;
+                
+                // Handle sample songs
+                if (orgPath) {
+                    // Handle directory browsing
+                    if (orgPath.endsWith('/')) {
+                        // Open directory browser
+                        fetch(orgPath)
+                            .then(response => response.text())
+                            .then(html => {
+                                // Simple parsing of directory listing
+                                const parser = new DOMParser();
+                                const doc = parser.parseFromString(html, 'text/html');
+                                const links = doc.querySelectorAll('a');
+                                const orgFiles = Array.from(links)
+                                    .map(a => a.href)
+                                    .filter(href => href.endsWith('.org'))
+                                    .map(href => href.split('/').pop());
+                                
+                                if (orgFiles.length > 0) {
+                                    const fileList = orgFiles.join('\n');
+                                    const selectedFile = prompt(`Select a song:\n\n${fileList}\n\nEnter filename:`);
+                                    if (selectedFile && orgFiles.includes(selectedFile)) {
+                                        loadOrgFromPath(orgPath + selectedFile);
+                                    }
+                                } else {
+                                    alert('No .org files found in this directory');
+                                }
+                            })
+                            .catch(err => {
+                                console.error('Error browsing directory:', err);
+                                alert('Could not browse directory');
+                            });
+                    } else {
+                        // Load specific org file
+                        loadOrgFromPath(orgPath);
+                    }
+                    return;
+                }
+                
+                // Handle specific menu actions
+                switch(id) {
+                    case 'menu-new':
+                        if (confirm('Clear all notes and start a new project?')) {
+                            pianoRoll.notes = [];
+                            pianoRoll.needsNoteGrouping = true; // Invalidate cache
+                            pianoRoll.dirty = true;
+                        }
+                        break;
+                    case 'menu-clear-all':
+                        if (confirm('Clear all notes?')) {
+                            pianoRoll.notes = [];
+                            pianoRoll.needsNoteGrouping = true; // Invalidate cache
+                            pianoRoll.dirty = true;
+                        }
+                        break;
+                    case 'menu-grid-snap':
+                        option.classList.toggle('checked');
+                        pianoRoll.gridSnap = option.classList.contains('checked');
+                        break;
+                    case 'menu-show-fps':
+                        option.classList.toggle('checked');
+                        showFPS = option.classList.contains('checked');
+                        pianoRoll.showFPS = showFPS;
+                        pianoRoll.dirty = true;
+                        break;
+                    case 'menu-follow-mode':
+                        option.classList.toggle('checked');
+                        pianoRoll.followMode = option.classList.contains('checked');
+                        break;
+                    case 'menu-select-all':
+                        pianoRoll.selectedNotes.clear();
+                        pianoRoll.notes.forEach(note => pianoRoll.selectedNotes.add(note));
+                        pianoRoll.dirty = true;
+                        break;
+                    case 'menu-delete':
+                        if (pianoRoll.selectedNotes.size > 0) {
+                            for (const note of pianoRoll.selectedNotes) {
+                                const index = pianoRoll.notes.indexOf(note);
+                                if (index > -1) {
+                                    pianoRoll.notes.splice(index, 1);
+                                }
+                            }
+                            pianoRoll.selectedNotes.clear();
+                            pianoRoll.needsNoteGrouping = true; // Invalidate cache
+                            pianoRoll.dirty = true;
+                        }
+                        break;
+                    case 'menu-copy':
+                        if (pianoRoll.selectedNotes.size > 0) {
+                            pianoRoll.clipboard = [];
+                            const minX = Math.min(...Array.from(pianoRoll.selectedNotes).map(n => n.x));
+                            for (const note of pianoRoll.selectedNotes) {
+                                pianoRoll.clipboard.push({
+                                    x: note.x - minX, // Store relative position
+                                    y: note.y,
+                                    width: note.width,
+                                    height: note.height,
+                                    key: note.key,
+                                    velocity: note.velocity,
+                                    pan: note.pan || 0,
+                                    instrument: note.instrument
+                                });
+                            }
+                        }
+                        break;
+                    case 'menu-paste':
+                        if (pianoRoll.clipboard.length > 0) {
+                            pianoRoll.selectedNotes.clear();
+                            const pasteX = pianoRoll.snapXToGrid(pianoRoll.mouseX) + pianoRoll.pianoKeyWidth;
+                            for (const clipNote of pianoRoll.clipboard) {
+                                const newNote = {
+                                    x: pasteX + clipNote.x,
+                                    y: clipNote.y,
+                                    width: clipNote.width,
+                                    height: clipNote.height,
+                                    key: clipNote.key,
+                                    velocity: clipNote.velocity,
+                                    pan: clipNote.pan || 0,
+                                    instrument: clipNote.instrument
+                                };
+                                pianoRoll.notes.push(newNote);
+                                pianoRoll.selectedNotes.add(newNote);
+                            }
+                            pianoRoll.needsNoteGrouping = true; // Invalidate cache
+                            pianoRoll.dirty = true;
+                        }
+                        break;
+                    case 'menu-cut':
+                        if (pianoRoll.selectedNotes.size > 0) {
+                            // Copy first
+                            pianoRoll.clipboard = [];
+                            const minX = Math.min(...Array.from(pianoRoll.selectedNotes).map(n => n.x));
+                            for (const note of pianoRoll.selectedNotes) {
+                                pianoRoll.clipboard.push({
+                                    x: note.x - minX,
+                                    y: note.y,
+                                    width: note.width,
+                                    height: note.height,
+                                    key: note.key,
+                                    velocity: note.velocity,
+                                    pan: note.pan || 0,
+                                    instrument: note.instrument
+                                });
+                            }
+                            // Then delete
+                            for (const note of pianoRoll.selectedNotes) {
+                                const index = pianoRoll.notes.indexOf(note);
+                                if (index > -1) {
+                                    pianoRoll.notes.splice(index, 1);
+                                }
+                            }
+                            pianoRoll.selectedNotes.clear();
+                            pianoRoll.needsNoteGrouping = true; // Invalidate cache
+                            pianoRoll.dirty = true;
+                        }
+                        break;
+                    case 'menu-import-org':
+                        // Create file input for Org Maker files
+                        const orgInput = document.createElement('input');
+                        orgInput.type = 'file';
+                        orgInput.accept = '.org';
+                        orgInput.onchange = (e) => {
+                            const file = e.target.files[0];
+                            if (file) {
+                                pianoRoll.importOrgFile(file);
+                            }
+                        };
+                        orgInput.click();
+                        break;
+                    case 'menu-about':
+                        alert('That 72edo Piano Roll\n\nA microtonal music sequencer with 72 equal divisions of the octave.\n\nBuilt with Web Audio API\nSounds from Org Maker');
+                        break;
+                    case 'menu-shortcuts':
+                        alert('Keyboard Shortcuts:\n\n' +
+                              'Arrow Keys - Navigate\n' +
+                              'Home/End - Jump to start/end\n' +
+                              'Left Click - Create/select/move/resize notes\n' +
+                              'Right Click - Delete notes\n' +
+                              'Ctrl/Cmd + Click - Selection box\n' +
+                              'Shift + Click - Add to selection\n' +
+                              'Shift + Click + Drag - Add selection box\n' +
+                              'Shift + Scroll - Horizontal scroll\n\n' +
+                              'Edit Menu:\n' +
+                              'Cut - Cut selected notes\n' +
+                              'Copy - Copy selected notes\n' +
+                              'Paste - Paste at current position\n' +
+                              'Delete - Delete selected notes\n' +
+                              'Select All - Select all notes');
+                        break;
+                }
+            });
+        });
+        
+        // Function to load org file from path
+        function loadOrgFromPath(path) {
+            fetch(path)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response.arrayBuffer();
+                })
+                .then(arrayBuffer => {
+                    // Stop current playback
+                    if (pianoRoll.isPlaying) {
+                        pianoRoll.stop();
+                    }
+                    
+                    // Create a pseudo-file object for the importer
+                    const fileName = path.split('/').pop();
+                    const file = new File([arrayBuffer], fileName, { type: 'application/octet-stream' });
+                    
+                    // Import the file
+                    pianoRoll.importOrgFile(file);
+                    
+                    // Update window title
+                    document.title = `${fileName} - That 72edo Piano Roll`;
+                })
+                .catch(error => {
+                    console.error('Error loading org file:', error);
+                    alert(`Failed to load ${path}: ${error.message}`);
+                });
+        }
+        
+        // Initialize checkbox states
+        document.getElementById('menu-grid-snap').classList.add('checked');
+        document.getElementById('menu-show-fps').classList.add('checked');
+        document.getElementById('menu-follow-mode').classList.add('checked');
+        pianoRoll.showFPS = true;
+        pianoRoll.followMode = true;
+        
+        // Start with empty grid
+    </script>
+</body>
+</html>

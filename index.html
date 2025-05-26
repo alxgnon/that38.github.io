@@ -368,6 +368,94 @@
         .credits a:hover {
             text-decoration: underline;
         }
+        
+        /* Notification styles */
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background-color: #333;
+            color: #fff;
+            padding: 15px 20px;
+            border-radius: 4px;
+            border: 1px solid #555;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+            z-index: 1100;
+            max-width: 400px;
+            animation: slideIn 0.3s ease-out;
+        }
+        
+        .notification.error {
+            background-color: #5a2020;
+            border-color: #aa4444;
+        }
+        
+        .notification.info {
+            background-color: #204a5a;
+            border-color: #4488aa;
+        }
+        
+        @keyframes slideIn {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+        
+        @keyframes slideOut {
+            from {
+                transform: translateX(0);
+                opacity: 1;
+            }
+            to {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+        }
+        
+        .notification.hiding {
+            animation: slideOut 0.3s ease-in;
+        }
+        
+        /* Info modal for About and Shortcuts */
+        .info-modal {
+            white-space: pre-wrap;
+            line-height: 1.6;
+        }
+        
+        /* Confirm dialog styles */
+        .confirm-dialog {
+            text-align: center;
+        }
+        
+        .confirm-message {
+            margin-bottom: 30px;
+            font-size: 16px;
+        }
+        
+        .confirm-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+        
+        .confirm-buttons button {
+            min-width: 100px;
+        }
+        
+        .confirm-buttons .confirm-yes {
+            background-color: #d9534f;
+            border-color: #d43f3a;
+        }
+        
+        .confirm-buttons .confirm-yes:hover {
+            background-color: #c9302c;
+            border-color: #ac2925;
+        }
     </style>
 </head>
 <body>
@@ -2391,7 +2479,7 @@
                     this.dirty = true;
                 } catch (error) {
                     console.error('Error importing Org file:', error);
-                    alert('Error importing Org file: ' + error.message);
+                    showNotification('Error importing Org file: ' + error.message, 'error');
                 }
             }
             
@@ -3310,18 +3398,22 @@
                 // Handle specific menu actions
                 switch(id) {
                     case 'menu-new':
-                        if (confirm('Clear all notes and start a new project?')) {
-                            pianoRoll.notes = [];
-                            pianoRoll.needsNoteGrouping = true; // Invalidate cache
-                            pianoRoll.dirty = true;
-                        }
+                        showConfirmDialog('Clear all notes and start a new project?').then(confirmed => {
+                            if (confirmed) {
+                                pianoRoll.notes = [];
+                                pianoRoll.needsNoteGrouping = true; // Invalidate cache
+                                pianoRoll.dirty = true;
+                            }
+                        });
                         break;
                     case 'menu-clear-all':
-                        if (confirm('Clear all notes?')) {
-                            pianoRoll.notes = [];
-                            pianoRoll.needsNoteGrouping = true; // Invalidate cache
-                            pianoRoll.dirty = true;
-                        }
+                        showConfirmDialog('Clear all notes?').then(confirmed => {
+                            if (confirmed) {
+                                pianoRoll.notes = [];
+                                pianoRoll.needsNoteGrouping = true; // Invalidate cache
+                                pianoRoll.dirty = true;
+                            }
+                        });
                         break;
                     case 'menu-grid-snap':
                         option.classList.toggle('checked');
@@ -3438,10 +3530,11 @@
                         orgInput.click();
                         break;
                     case 'menu-about':
-                        alert('That 72edo Piano Roll\n\nA microtonal music sequencer with 72 equal divisions of the octave.\n\nBuilt with Web Audio API\nSounds from Org Maker\n\nMusic by Pixel (Cave Story)');
+                        showInfoModal('About', 'That 72edo Piano Roll\n\nA microtonal music sequencer with 72 equal divisions of the octave.\n\nBuilt with Web Audio API\nSounds from Org Maker\n\nMusic by Pixel (Cave Story)');
                         break;
                     case 'menu-shortcuts':
-                        alert('Keyboard Shortcuts:\n\n' +
+                        showInfoModal('Keyboard Shortcuts', 
+                              'Keyboard Shortcuts:\n\n' +
                               'Arrow Keys - Navigate\n' +
                               'Home/End - Jump to start/end\n' +
                               'Left Click - Create/select/move/resize notes\n' +
@@ -3515,17 +3608,61 @@
             modal.classList.add('show');
         }
         
-        // Modal close handlers
-        document.querySelector('.modal-close').addEventListener('click', () => {
-            document.getElementById('songModal').classList.remove('show');
-        });
+        // Notification system
+        function showNotification(message, type = 'info') {
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            notification.textContent = message;
+            document.body.appendChild(notification);
+            
+            // Auto-hide after 5 seconds
+            setTimeout(() => {
+                notification.classList.add('hiding');
+                setTimeout(() => {
+                    notification.remove();
+                }, 300);
+            }, 5000);
+        }
         
-        // Close modal when clicking outside
-        document.getElementById('songModal').addEventListener('click', (e) => {
-            if (e.target === e.currentTarget) {
-                e.currentTarget.classList.remove('show');
-            }
-        });
+        // Info modal system
+        function showInfoModal(title, content) {
+            document.getElementById('infoModalTitle').textContent = title;
+            document.getElementById('infoModalContent').textContent = content;
+            document.getElementById('infoModal').classList.add('show');
+        }
+        
+        // Confirmation dialog system
+        function showConfirmDialog(message) {
+            return new Promise((resolve) => {
+                const modal = document.getElementById('confirmModal');
+                const messageEl = document.getElementById('confirmMessage');
+                const yesBtn = modal.querySelector('.confirm-yes');
+                const noBtn = modal.querySelector('.confirm-no');
+                
+                messageEl.textContent = message;
+                
+                const handleYes = () => {
+                    cleanup();
+                    resolve(true);
+                };
+                
+                const handleNo = () => {
+                    cleanup();
+                    resolve(false);
+                };
+                
+                const cleanup = () => {
+                    modal.classList.remove('show');
+                    yesBtn.removeEventListener('click', handleYes);
+                    noBtn.removeEventListener('click', handleNo);
+                };
+                
+                yesBtn.addEventListener('click', handleYes);
+                noBtn.addEventListener('click', handleNo);
+                
+                modal.classList.add('show');
+            });
+        }
         
         // Initialize checkbox states
         document.getElementById('menu-grid-snap').classList.add('checked');
@@ -3535,6 +3672,34 @@
         pianoRoll.followMode = true;
         
         // Start with empty grid
+        
+        // Modal close handlers - set up after DOM is loaded
+        window.addEventListener('DOMContentLoaded', () => {
+            // Modal close buttons
+            document.querySelectorAll('.modal-close').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    btn.closest('.modal').classList.remove('show');
+                });
+            });
+            
+            // Close modal when clicking outside
+            document.querySelectorAll('.modal').forEach(modal => {
+                modal.addEventListener('click', (e) => {
+                    if (e.target === e.currentTarget) {
+                        e.currentTarget.classList.remove('show');
+                    }
+                });
+            });
+            
+            // Also handle Escape key to close modals
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') {
+                    document.querySelectorAll('.modal.show').forEach(modal => {
+                        modal.classList.remove('show');
+                    });
+                }
+            });
+        });
     </script>
     
     <!-- Song Selection Modal -->
@@ -3547,6 +3712,36 @@
             <ul class="song-list" id="songList">
                 <!-- Songs will be populated here -->
             </ul>
+        </div>
+    </div>
+    
+    <!-- Info Modal (for About, Shortcuts, etc) -->
+    <div id="infoModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title" id="infoModalTitle">Information</h2>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="info-modal" id="infoModalContent">
+                <!-- Content will be populated here -->
+            </div>
+        </div>
+    </div>
+    
+    <!-- Confirm Modal -->
+    <div id="confirmModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">Confirm Action</h2>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="confirm-dialog">
+                <div class="confirm-message" id="confirmMessage">Are you sure?</div>
+                <div class="confirm-buttons">
+                    <button class="confirm-no">Cancel</button>
+                    <button class="confirm-yes">Confirm</button>
+                </div>
+            </div>
         </div>
     </div>
     

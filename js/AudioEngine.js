@@ -258,19 +258,20 @@ export class AudioEngine {
         } else {
             source.loop = true;
             
-            // Organya-style envelope
-            // Quick attack
+            // Organya-style beat-based envelope
+            // Quick attack to full volume
             gain.gain.setValueAtTime(0, startTime);
             gain.gain.linearRampToValueAtTime(authenticVolume, startTime + 0.005);
             
-            // Hold at full volume for one beat (or until note is shorter)
+            // Calculate beat duration
             const beatDuration = 60 / this.currentBPM; // seconds per beat
-            const holdTime = Math.min(beatDuration, duration * 0.8); // Don't hold longer than 80% of note
             
-            if (duration > holdTime + 0.1) {
-                // After the beat, drop to 65% volume (more subtle envelope)
-                gain.gain.setValueAtTime(authenticVolume, startTime + holdTime);
-                gain.gain.exponentialRampToValueAtTime(authenticVolume * 0.65, startTime + holdTime + 0.05);
+            // After first beat, drop to sustain level
+            if (duration > beatDuration) {
+                // Hold at full volume for first beat
+                gain.gain.setValueAtTime(authenticVolume, startTime + beatDuration - 0.01);
+                // Then drop to 65% for remaining beats
+                gain.gain.exponentialRampToValueAtTime(authenticVolume * 0.65, startTime + beatDuration + 0.01);
             }
         }
         

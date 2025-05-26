@@ -282,6 +282,9 @@ export class AudioEngine {
             console.log(`${sampleName} key:${keyNumber} oct:${octave} vel:${velocity} vol:${authenticVolume.toFixed(3)} dur:${duration?.toFixed(2)}s pipi:${pipi}`);
         }
         
+        // Track decay time for pipi=true instruments
+        let noteDecayTime = 0;
+        
         
         if (isDrum) {
             source.loop = false;
@@ -293,20 +296,32 @@ export class AudioEngine {
             // Default to infinite loop if not specified
             const actualPipi = pipi !== null ? pipi : false;
             
-            // For now, always loop to ensure notes play for their full duration
-            // TODO: Implement proper finite looping with extended buffers
-            source.loop = true;
-            
-            // Calculate theoretical loop duration for pipi=true instruments
+            // Handle looping based on pipi value
             if (actualPipi === true) {
+                // pipi=true: finite loops with natural decay
                 const octave = Math.floor(keyNumber / NOTES_PER_OCTAVE);
                 const numLoops = (octave + 1) * 4;
                 const playbackRate = this.calculatePlaybackRate(keyNumber, sampleName, false);
                 const loopDuration = (256 * numLoops) / (this.audioContext.sampleRate * playbackRate);
                 
-                if (duration > 0 && loopDuration < duration) {
-                    console.warn(`Note ${sampleName} oct:${octave} would end early: ${loopDuration.toFixed(3)}s < ${duration.toFixed(3)}s`);
+                // Always loop, but schedule a fade out after the loop duration
+                source.loop = true;
+                
+                // Schedule decay after loops complete
+                const decayStartTime = startTime + loopDuration;
+                const decayDuration = 0.5; // 500ms decay
+                
+                if (decayStartTime < startTime + duration) {
+                    // Schedule the decay envelope
+                    gain.gain.setValueAtTime(authenticVolume, decayStartTime);
+                    gain.gain.exponentialRampToValueAtTime(authenticVolume * 0.1, decayStartTime + decayDuration);
+                    
+                    // Store decay info for proper release handling
+                    noteDecayTime = decayStartTime + decayDuration;
                 }
+            } else {
+                // pipi=false: loop infinitely
+                source.loop = true;
             }
             
             // Simple attack to prevent clicks
@@ -335,12 +350,15 @@ export class AudioEngine {
                 
                 // Ensure we have enough time for the release
                 if (stopTime - releaseTime > startTime + 0.002) {
-                    // Cancel any scheduled changes and set current value
-                    gain.gain.cancelScheduledValues(stopTime - releaseTime);
-                    gain.gain.setValueAtTime(gain.gain.value, stopTime - releaseTime);
-                    
-                    // Release envelope
-                    gain.gain.exponentialRampToValueAtTime(0.001, stopTime);
+                    // Don't apply release if note has already decayed
+                    if (noteDecayTime === 0 || stopTime < noteDecayTime) {
+                        // Cancel any scheduled changes and set current value
+                        gain.gain.cancelScheduledValues(stopTime - releaseTime);
+                        gain.gain.setValueAtTime(gain.gain.value, stopTime - releaseTime);
+                        
+                        // Release envelope
+                        gain.gain.exponentialRampToValueAtTime(0.001, stopTime);
+                    }
                     
                     // Stop the source after release
                     source.stop(stopTime + releaseTime);

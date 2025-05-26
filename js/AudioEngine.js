@@ -298,26 +298,28 @@ export class AudioEngine {
             
             // Handle looping based on pipi value
             if (actualPipi === true) {
-                // pipi=true: finite loops with natural decay
+                // pipi=true: finite loops then stop (like organya-js)
                 const octave = Math.floor(keyNumber / NOTES_PER_OCTAVE);
                 const numLoops = (octave + 1) * 4;
                 const playbackRate = this.calculatePlaybackRate(keyNumber, sampleName, false);
                 const loopDuration = (256 * numLoops) / (this.audioContext.sampleRate * playbackRate);
                 
-                // Always loop, but schedule a fade out after the loop duration
+                // Always loop the buffer
                 source.loop = true;
                 
-                // Schedule decay after loops complete
-                const decayStartTime = startTime + loopDuration;
-                const decayDuration = 0.5; // 500ms decay
+                // Schedule hard stop after loops complete
+                const stopAfterLoops = startTime + loopDuration;
                 
-                if (decayStartTime < startTime + duration) {
-                    // Schedule the decay envelope
-                    gain.gain.setValueAtTime(authenticVolume, decayStartTime);
-                    gain.gain.exponentialRampToValueAtTime(authenticVolume * 0.1, decayStartTime + decayDuration);
+                if (stopAfterLoops < startTime + duration) {
+                    // Add a very short fade to prevent clicks
+                    const fadeTime = 0.005; // 5ms fade
+                    gain.gain.setValueAtTime(authenticVolume, stopAfterLoops - fadeTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, stopAfterLoops);
                     
-                    // Store decay info for proper release handling
-                    noteDecayTime = decayStartTime + decayDuration;
+                    // Stop the note after the loops complete
+                    source.stop(stopAfterLoops);
+                    // Mark that this note will self-stop
+                    noteDecayTime = stopAfterLoops;
                 }
             } else {
                 // pipi=false: loop infinitely
@@ -360,11 +362,15 @@ export class AudioEngine {
                         gain.gain.exponentialRampToValueAtTime(0.001, stopTime);
                     }
                     
-                    // Stop the source after release
-                    source.stop(stopTime + releaseTime);
+                    // Stop the source after release (unless it already self-stopped)
+                    if (noteDecayTime === 0 || stopTime < noteDecayTime) {
+                        source.stop(stopTime + releaseTime);
+                    }
                 } else {
-                    // Note too short for release envelope, just stop
-                    source.stop(stopTime);
+                    // Note too short for release envelope, just stop (unless it already self-stopped)
+                    if (noteDecayTime === 0 || stopTime < noteDecayTime) {
+                        source.stop(stopTime);
+                    }
                 }
             }
             

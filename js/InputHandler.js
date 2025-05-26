@@ -408,6 +408,13 @@ export class InputHandler {
         const targetX = x - this.dragStartX;
         const targetY = y - this.dragStartY;
         
+        // Debug: Check if positions exist
+        if (!this.originalPositions && !this.pianoRoll.noteManager.selectedNotes.has(this.dragNote)) {
+            // Store original position for single note if not set
+            this.originalPositions = new Map();
+            this.originalPositions.set(this.dragNote, { x: this.dragNote.x, y: this.dragNote.y });
+        }
+        
         if (this.pianoRoll.noteManager.selectedNotes.has(this.dragNote) && this.originalPositions) {
             // Calculate delta from original position of the dragged note
             const originalDragPos = this.originalPositions.get(this.dragNote);
@@ -456,6 +463,8 @@ export class InputHandler {
                 this.dragNote.key = newKey;
             }
         }
+        
+        this.pianoRoll.dirty = true;
         
         this.pianoRoll.dirty = true;
     }

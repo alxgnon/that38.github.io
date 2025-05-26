@@ -25,6 +25,9 @@ export class AudioEngine {
         // Glissando state
         this.currentGlissandoNote = null;
         this.currentGlissandoKey = null;
+        
+        // Tempo for envelope timing
+        this.currentBPM = 120;
     }
 
     /**
@@ -33,6 +36,13 @@ export class AudioEngine {
      */
     setMasterVolume(volume) {
         this.masterGain.gain.value = volume / 100;
+    }
+    
+    /**
+     * Set current BPM for envelope timing
+     */
+    setBPM(bpm) {
+        this.currentBPM = bpm;
     }
 
     /**
@@ -247,7 +257,21 @@ export class AudioEngine {
             gain.gain.setValueAtTime(authenticVolume, startTime);
         } else {
             source.loop = true;
-            gain.gain.setValueAtTime(authenticVolume, startTime);
+            
+            // Organya-style envelope
+            // Quick attack
+            gain.gain.setValueAtTime(0, startTime);
+            gain.gain.linearRampToValueAtTime(authenticVolume, startTime + 0.005);
+            
+            // Hold at full volume for one beat (or until note is shorter)
+            const beatDuration = 60 / 120; // Default 120 BPM = 0.5 seconds per beat
+            const holdTime = Math.min(beatDuration, duration * 0.8); // Don't hold longer than 80% of note
+            
+            if (duration > holdTime + 0.1) {
+                // After the beat, drop to 40% volume (more dramatic than before)
+                gain.gain.setValueAtTime(authenticVolume, startTime + holdTime);
+                gain.gain.linearRampToValueAtTime(authenticVolume * 0.4, startTime + holdTime + 0.05);
+            }
         }
         
         // Start playback at scheduled time
@@ -260,10 +284,17 @@ export class AudioEngine {
             if (isDrum) {
                 // Let drums play out naturally
             } else {
-                // Schedule note off for melodic instruments
-                source.stop(stopTime);
-                gain.gain.setValueAtTime(authenticVolume, stopTime - 0.01);
+                // Schedule note off with release envelope
+                const releaseTime = 0.05; // 50ms release
+                
+                // Hold at sustain level until near the end
+                gain.gain.setValueAtTime(authenticVolume * 0.8, stopTime - releaseTime);
+                
+                // Release envelope
                 gain.gain.linearRampToValueAtTime(0, stopTime);
+                
+                // Stop the source after release
+                source.stop(stopTime + releaseTime);
             }
             
             // Return noteData for tracking
@@ -336,9 +367,18 @@ export class AudioEngine {
             try {
                 const now = this.audioContext.currentTime;
                 
-                // Authentic organya behavior: immediate stop
-                note.source.stop(now + AUDIO_STOP_DELAY);
-                note.gain.gain.setValueAtTime(0, now + AUDIO_STOP_DELAY);
+                if (note.isDrum) {
+                    // Drums stop immediately
+                    note.source.stop(now + AUDIO_STOP_DELAY);
+                    note.gain.gain.setValueAtTime(0, now + AUDIO_STOP_DELAY);
+                } else {
+                    // Melodic instruments use release envelope
+                    const releaseTime = 0.05; // 50ms release
+                    note.gain.gain.cancelScheduledValues(now);
+                    note.gain.gain.setValueAtTime(note.gain.gain.value, now);
+                    note.gain.gain.linearRampToValueAtTime(0, now + releaseTime);
+                    note.source.stop(now + releaseTime + AUDIO_STOP_DELAY);
+                }
                 
                 // Ensure cleanup happens
                 setTimeout(() => {

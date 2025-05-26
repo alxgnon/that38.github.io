@@ -339,6 +339,7 @@ export class PianoRoll {
         this.currentBPM = bpm;
         this.beatDuration = 60000 / bpm;
         this.measureDuration = this.beatDuration * this.beatsPerMeasure;
+        this.audioEngine.setBPM(bpm);
     }
 
     setLoop(enabled, start = null, end = null) {

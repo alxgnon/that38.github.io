@@ -192,6 +192,20 @@ export class AudioEngine {
                             console.warn(`Warning: ${sampleName} has very low amplitude (range: ${minSample} to ${maxSample})`);
                         }
                         
+                        // Special check for M06 waveform characteristics
+                        if (sampleName === 'ORG_M06') {
+                            // Analyze the waveform shape
+                            let peakCount = 0;
+                            let lastSample = channelData[0];
+                            for (let i = 1; i < 256; i++) {
+                                if ((lastSample <= 0 && channelData[i] > 0) || (lastSample >= 0 && channelData[i] < 0)) {
+                                    peakCount++;
+                                }
+                                lastSample = channelData[i];
+                            }
+                            console.log(`M06 waveform: ${peakCount} zero crossings, amplitude range: ${minSample} to ${maxSample}`);
+                        }
+                        
                         
                         this.loadedSamples.set(sampleName, audioBuffer);
                         return audioBuffer;
@@ -245,8 +259,23 @@ export class AudioEngine {
         }
         
         // Stop any existing note on this key first
+        // For scheduled notes, delay the stop slightly to avoid gaps
         if (this.activeNotes.has(keyNumber)) {
-            this.stopNote(keyNumber);
+            if (when && when > this.audioContext.currentTime) {
+                // Scheduled note - stop the old one just as the new one starts
+                const existingNote = this.activeNotes.get(keyNumber);
+                if (existingNote && existingNote.source) {
+                    try {
+                        existingNote.source.stop(when);
+                    } catch (e) {
+                        // Already stopped
+                    }
+                }
+                this.activeNotes.delete(keyNumber);
+            } else {
+                // Immediate note - stop right away
+                this.stopNote(keyNumber);
+            }
         }
         
         const buffer = await this.loadSample(sampleName);
@@ -276,11 +305,6 @@ export class AudioEngine {
         const orgVol = velocity * ORG_VELOCITY_SCALE;
         const authenticVolume = Math.pow(10, ((orgVol - 255) * 8) / 2000);
         
-        // Log instrument details for debugging
-        if (!isDrum && (sampleName.includes('M1') || sampleName.includes('M2'))) {
-            const octave = Math.floor(keyNumber / NOTES_PER_OCTAVE);
-            console.log(`${sampleName} key:${keyNumber} oct:${octave} vel:${velocity} vol:${authenticVolume.toFixed(3)} dur:${duration?.toFixed(2)}s pipi:${pipi}`);
-        }
         
         // Track decay time for pipi=true instruments
         let noteDecayTime = 0;
@@ -298,28 +322,27 @@ export class AudioEngine {
             
             // Handle looping based on pipi value
             if (actualPipi === true) {
-                // pipi=true: finite loops then stop (like organya-js)
+                // pipi=true: finite loops based on octave
                 const octave = Math.floor(keyNumber / NOTES_PER_OCTAVE);
-                const numLoops = (octave + 1) * 4;
+                const octSizes = [4, 8, 12, 16, 20, 24, 28, 32];
+                const numLoops = octSizes[Math.min(octave, 7)];
+                
+                // Calculate when the loops would complete
                 const playbackRate = this.calculatePlaybackRate(keyNumber, sampleName, false);
                 const loopDuration = (256 * numLoops) / (this.audioContext.sampleRate * playbackRate);
+                
                 
                 // Always loop the buffer
                 source.loop = true;
                 
-                // Schedule hard stop after loops complete
-                const stopAfterLoops = startTime + loopDuration;
-                
-                if (stopAfterLoops < startTime + duration) {
-                    // Add a very short fade to prevent clicks
-                    const fadeTime = 0.005; // 5ms fade
-                    gain.gain.setValueAtTime(authenticVolume, stopAfterLoops - fadeTime);
-                    gain.gain.exponentialRampToValueAtTime(0.001, stopAfterLoops);
-                    
-                    // Stop the note after the loops complete
-                    source.stop(stopAfterLoops);
-                    // Mark that this note will self-stop
-                    noteDecayTime = stopAfterLoops;
+                // Only cut off if loops complete before note duration
+                if (loopDuration < duration) {
+                    // Schedule a quick fade and stop
+                    const fadeTime = 0.01; // 10ms fade
+                    gain.gain.setValueAtTime(authenticVolume, startTime + loopDuration - fadeTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, startTime + loopDuration);
+                    source.stop(startTime + loopDuration);
+                    noteDecayTime = startTime + loopDuration;
                 }
             } else {
                 // pipi=false: loop infinitely

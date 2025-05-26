@@ -187,7 +187,7 @@ export class OrgParser {
         // Debug: Check instrument settings
         console.log('=== Instrument Settings ===');
         instruments.forEach((inst, i) => {
-            console.log(`Track ${i}: instrument=${inst.instrument}, pipi=${inst.pipi}, pitch=${inst.pitch}`);
+            console.log(`Track ${i}: instrument=${inst.instrument}, pipi=${inst.pipi}, pitch=${inst.pitch}, noteCount=${inst.noteCount}`);
         });
         
         // ORG 'wait' value represents milliseconds per tick

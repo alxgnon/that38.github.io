@@ -261,7 +261,8 @@ export class PianoRoll {
             false,
             note.pan,
             startTime,
-            duration
+            duration,
+            note.pipi || false
         ).then(noteData => {
             if (noteData) {
                 const noteId = `${note.key}-${startTime}`;

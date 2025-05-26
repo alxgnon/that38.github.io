@@ -213,7 +213,7 @@ export class AudioEngine {
      * @param {number} when - When to play (audio context time)
      * @param {number} duration - Note duration in seconds
      */
-    async playNote(keyNumber, velocity = 100, sampleName, isGlissando = false, pan = 0, when = 0, duration = 0) {
+    async playNote(keyNumber, velocity = 100, sampleName, isGlissando = false, pan = 0, when = 0, duration = 0, pipi = false) {
         // For glissando with portamento, update existing note's pitch
         if (isGlissando && this.currentGlissandoNote) {
             this.updateGlissandoPitch(keyNumber, sampleName);
@@ -258,10 +258,11 @@ export class AudioEngine {
         } else {
             source.loop = true;
             
-            // Use the volume directly from the ORG file
-            // with just a tiny attack to prevent clicks
+            // Simple attack to prevent clicks
             gain.gain.setValueAtTime(0, startTime);
             gain.gain.linearRampToValueAtTime(authenticVolume, startTime + 0.002);
+            
+            // Note: pipi only affects whether the waveform loops, not the envelope
         }
         
         // Start playback at scheduled time

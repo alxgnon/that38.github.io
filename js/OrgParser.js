@@ -184,7 +184,11 @@ export class OrgParser {
         const notes = [];
         const { header, instruments, tracks } = orgData;
         
-        // Removed debug code
+        // Debug: Check instrument settings
+        console.log('=== Instrument Settings ===');
+        instruments.forEach((inst, i) => {
+            console.log(`Track ${i}: instrument=${inst.instrument}, pipi=${inst.pipi}, pitch=${inst.pitch}`);
+        });
         
         // ORG 'wait' value represents milliseconds per tick
         // Lower wait = faster tempo
@@ -232,7 +236,8 @@ export class OrgParser {
                     key: key72,
                     velocity,
                     pan,
-                    instrument: instrumentName
+                    instrument: instrumentName,
+                    pipi: instrument.pipi  // Pass through the pipi flag
                 });
             });
         });

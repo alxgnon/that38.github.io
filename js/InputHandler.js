@@ -1,4 +1,4 @@
-import { PIANO_KEY_WIDTH, RESIZE_HANDLE_WIDTH, NUM_OCTAVES, NOTES_PER_OCTAVE, NOTE_HEIGHT } from './constants.js';
+import { PIANO_KEY_WIDTH, RESIZE_HANDLE_WIDTH, NUM_OCTAVES, NOTES_PER_OCTAVE, NOTE_HEIGHT, GRID_WIDTH, GRID_SUBDIVISIONS } from './constants.js';
 
 /**
  * Handles all user input events
@@ -408,16 +408,24 @@ export class InputHandler {
         const targetX = x - this.dragStartX;
         const targetY = y - this.dragStartY;
         
-        // Debug: Check if positions exist
-        if (!this.originalPositions && !this.pianoRoll.noteManager.selectedNotes.has(this.dragNote)) {
-            // Store original position for single note if not set
+        // Ensure originalPositions exists
+        if (!this.originalPositions) {
             this.originalPositions = new Map();
-            this.originalPositions.set(this.dragNote, { x: this.dragNote.x, y: this.dragNote.y });
+            if (this.pianoRoll.noteManager.selectedNotes.has(this.dragNote)) {
+                // Store positions for all selected notes
+                for (const n of this.pianoRoll.noteManager.selectedNotes) {
+                    this.originalPositions.set(n, { x: n.x, y: n.y });
+                }
+            } else {
+                // Store position for single note
+                this.originalPositions.set(this.dragNote, { x: this.dragNote.x, y: this.dragNote.y });
+            }
         }
         
-        if (this.pianoRoll.noteManager.selectedNotes.has(this.dragNote) && this.originalPositions) {
+        if (this.pianoRoll.noteManager.selectedNotes.has(this.dragNote) && this.originalPositions.size > 1) {
             // Calculate delta from original position of the dragged note
             const originalDragPos = this.originalPositions.get(this.dragNote);
+            if (!originalDragPos) return;
             const deltaX = targetX - originalDragPos.x;
             const deltaY = targetY - originalDragPos.y;
             
@@ -435,7 +443,7 @@ export class InputHandler {
                 
                 // Ensure note stays within bounds
                 newX = Math.max(PIANO_KEY_WIDTH, newX);
-                const newKey = this.getKeyFromY(newY);
+                const newKey = this.getKeyFromY(newY + NOTE_HEIGHT / 2);
                 if (newKey >= 0 && newKey < NUM_OCTAVES * NOTES_PER_OCTAVE) {
                     note.x = newX;
                     note.y = (NUM_OCTAVES * NOTES_PER_OCTAVE - 1 - newKey) * NOTE_HEIGHT;
@@ -456,15 +464,13 @@ export class InputHandler {
             
             // Ensure note stays within bounds
             newX = Math.max(PIANO_KEY_WIDTH, newX);
-            const newKey = this.getKeyFromY(newY);
+            const newKey = this.getKeyFromY(newY + NOTE_HEIGHT / 2);
             if (newKey >= 0 && newKey < NUM_OCTAVES * NOTES_PER_OCTAVE) {
                 this.dragNote.x = newX;
                 this.dragNote.y = (NUM_OCTAVES * NOTES_PER_OCTAVE - 1 - newKey) * NOTE_HEIGHT;
                 this.dragNote.key = newKey;
             }
         }
-        
-        this.pianoRoll.dirty = true;
         
         this.pianoRoll.dirty = true;
     }

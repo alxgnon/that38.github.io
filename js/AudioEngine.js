@@ -4,7 +4,8 @@ import {
     BASE_SAMPLE_RATE,
     PORTAMENTO_TIME,
     AUDIO_STOP_DELAY,
-    ORG_VELOCITY_SCALE
+    ORG_VELOCITY_SCALE,
+    MAX_DRUMS
 } from './constants.js';
 
 /**
@@ -106,7 +107,7 @@ export class AudioEngine {
                 }
             }
             
-            console.log(`Loaded wavetable with 100 waves and ${this.drums.length} drums`);
+            console.log(`Loaded wavetable with 100 waves and ${this.drums.length} drums (using first ${MAX_DRUMS})`);
             return true;
         } catch (error) {
             console.error('Failed to load wavetable:', error);
@@ -429,7 +430,7 @@ export class AudioEngine {
         const melodicSamples = [];
         
         if (this.wavetable) {
-            for (let i = 0; i < this.drums.length && i < 6; i++) {
+            for (let i = 0; i < this.drums.length && i < MAX_DRUMS; i++) {
                 drumSamples.push(`ORG_D${i.toString().padStart(2, '0')}`);
             }
             
@@ -438,7 +439,7 @@ export class AudioEngine {
             }
         } else {
             // Fallback to WAV files
-            for (let i = 0; i < 6; i++) {
+            for (let i = 0; i < MAX_DRUMS; i++) {
                 drumSamples.push(`ORG_D${i.toString().padStart(2, '0')}`);
             }
             for (let i = 0; i <= 99; i++) {

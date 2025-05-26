@@ -1,0 +1,578 @@
+/* Global styles */
+body {
+    margin: 0;
+    padding: 0;
+    font-family: Arial, sans-serif;
+    background: #1a1a1a;
+    color: #fff;
+    overflow: hidden;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Main container */
+#container {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+#canvas-container {
+    position: relative;
+    border: none;
+    overflow: hidden;
+    background: #222;
+    flex: 1;
+}
+
+canvas {
+    display: block;
+    cursor: crosshair;
+}
+
+/* Controls panel */
+#controls {
+    padding: 10px 20px;
+    display: flex;
+    gap: 20px;
+    background: #333;
+    border-bottom: 1px solid #555;
+    align-items: center;
+    height: 50px;
+}
+
+/* Control groups */
+.control-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.control-group.transport {
+    gap: 5px;
+}
+
+.control-group.loop {
+    padding: 0 15px;
+    border-left: 1px solid #555;
+}
+
+.control-group.instrument-group {
+    margin-left: auto;
+}
+
+/* Instrument selector group */
+.instrument-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+#instrumentColorIndicator {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 2px solid #555;
+    border-radius: 3px;
+}
+
+/* Loop range container */
+.loop-range-container {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #2a2a2a;
+    padding: 5px 10px;
+    border-radius: 4px;
+    border: 1px solid #444;
+}
+
+.loop-range-container span {
+    color: #888;
+    font-size: 12px;
+}
+
+.loop-range-container input[type="number"] {
+    width: 35px;
+    background: transparent;
+    border: none;
+    color: #fff;
+    text-align: center;
+    font-size: 13px;
+}
+
+/* Button styles */
+button {
+    padding: 8px 16px;
+    background: #333;
+    color: #fff;
+    border: 1px solid #555;
+    cursor: pointer;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Transport buttons (play/stop) */
+.transport button {
+    padding: 8px 12px;
+    min-width: 36px;
+}
+
+button:hover {
+    background: #444;
+}
+
+button:active {
+    background: #555;
+}
+
+button.active {
+    background: #4a9eff;
+    border-color: #357abd;
+}
+
+#loopBtn {
+    background: #444;
+    border: 1px solid #666;
+}
+
+#loopBtn.active {
+    background: #4CAF50;
+    border-color: #4CAF50;
+}
+
+button svg {
+    pointer-events: none;
+}
+
+/* Typography */
+h1 {
+    margin: 0;
+    font-size: 16px;
+    padding-right: 20px;
+}
+
+/* Form controls */
+input[type="range"] {
+    width: 120px;
+    height: 4px;
+    background: #444;
+    outline: none;
+    -webkit-appearance: none;
+    appearance: none;
+    border-radius: 2px;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 12px;
+    height: 12px;
+    background: #4a9eff;
+    cursor: pointer;
+    border-radius: 50%;
+}
+
+input[type="range"]::-moz-range-thumb {
+    width: 12px;
+    height: 12px;
+    background: #4a9eff;
+    cursor: pointer;
+    border-radius: 50%;
+    border: none;
+}
+
+label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: #ccc;
+}
+
+.checkbox-label {
+    cursor: pointer;
+}
+
+.checkbox-label input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+}
+
+select {
+    background: #2a2a2a;
+    color: #fff;
+    border: 1px solid #444;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 13px;
+    cursor: pointer;
+    outline: none;
+}
+
+select:hover {
+    background: #333;
+    border-color: #555;
+}
+
+/* Menu bar */
+#menubar {
+    background: #2a2a2a;
+    border-bottom: 1px solid #444;
+    display: flex;
+    user-select: none;
+    font-size: 13px;
+    height: 24px;
+    align-items: center;
+}
+
+.menu-item {
+    position: relative;
+    padding: 0 12px;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+}
+
+.menu-item:hover,
+.menu-item.active {
+    background: #444;
+}
+
+.menu-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    background: #2a2a2a;
+    border: 1px solid #444;
+    border-top: none;
+    min-width: 200px;
+    display: none;
+    box-shadow: 2px 2px 8px rgba(0, 0, 0, 0.3);
+    z-index: 1000;
+}
+
+.menu-item.active .menu-dropdown {
+    display: block;
+}
+
+.menu-option {
+    padding: 6px 20px;
+    cursor: default;
+    position: relative;
+}
+
+.menu-option:hover:not(.disabled) {
+    background: #444;
+}
+
+.menu-option.disabled {
+    color: #666;
+    cursor: not-allowed;
+}
+
+.menu-separator {
+    height: 1px;
+    background: #444;
+    margin: 4px 0;
+}
+
+.menu-checkbox {
+    padding-left: 30px;
+}
+
+.menu-check {
+    position: absolute;
+    left: 8px;
+    opacity: 0;
+}
+
+.menu-checkbox.checked .menu-check {
+    opacity: 1;
+}
+
+.menu-submenu {
+    position: absolute;
+    left: 100%;
+    top: 0;
+    background: #2a2a2a;
+    border: 1px solid #444;
+    min-width: 200px;
+    display: none;
+    box-shadow: 2px 2px 8px rgba(0, 0, 0, 0.3);
+    z-index: 1001;
+}
+
+.menu-option.has-submenu {
+    padding-right: 30px;
+}
+
+.menu-option.has-submenu:hover .menu-submenu {
+    display: block;
+}
+
+.submenu-arrow {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 10px;
+    color: #999;
+}
+
+.menu-shortcut {
+    float: right;
+    color: #888;
+    margin-left: 20px;
+}
+
+/* Pan and velocity bars */
+#pan-bar,
+#velocity-bar {
+    background: #333;
+    border-top: 1px solid #555;
+    height: 60px;
+    position: relative;
+}
+
+#pan-container,
+#velocity-container {
+    width: 100%;
+    height: 100%;
+    background: #222;
+    position: relative;
+    overflow: hidden;
+}
+
+#panCanvas,
+#velocityCanvas {
+    display: block;
+    cursor: pointer;
+}
+
+/* Loop range inputs */
+.loop-range-container input[type="number"] {
+    outline: none;
+    padding: 2px 4px;
+}
+
+.loop-range-container input[type="number"]:focus {
+    background: #1a1a1a !important;
+    border-radius: 2px;
+}
+
+/* Hide spin buttons for a cleaner look */
+.loop-range-container input[type="number"]::-webkit-outer-spin-button,
+.loop-range-container input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+.loop-range-container input[type="number"] {
+    -moz-appearance: textfield;
+}
+
+.loop-range-container .loop-label {
+    color: #888;
+    font-size: 12px;
+}
+
+.loop-range-container .loop-separator {
+    color: #666;
+}
+
+/* Hover effect for loop container */
+.loop-range-container:hover {
+    background: #2f2f2f !important;
+    border-color: #555 !important;
+}
+
+/* Modal styles */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.7);
+    align-items: center;
+    justify-content: center;
+}
+
+.modal.show {
+    display: flex;
+}
+
+.modal-content {
+    background-color: #2a2a2a;
+    padding: 20px;
+    border: 1px solid #555;
+    width: 500px;
+    max-width: 90%;
+    max-height: 80vh;
+    overflow-y: auto;
+    border-radius: 4px;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #444;
+}
+
+.modal-title {
+    font-size: 18px;
+    font-weight: bold;
+}
+
+.modal-close {
+    font-size: 24px;
+    cursor: pointer;
+    color: #999;
+    background: none;
+    border: none;
+    padding: 0;
+    width: 30px;
+    height: 30px;
+}
+
+.modal-close:hover {
+    color: #fff;
+}
+
+.song-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.song-item {
+    padding: 10px;
+    cursor: pointer;
+    border: 1px solid #444;
+    margin-bottom: 5px;
+    border-radius: 4px;
+    transition: background-color 0.2s;
+}
+
+.song-item:hover {
+    background-color: #3a3a3a;
+}
+
+/* Credits */
+.credits {
+    position: fixed;
+    bottom: 10px;
+    right: 10px;
+    font-size: 12px;
+    color: #888;
+    text-align: right;
+}
+
+.credits a {
+    color: #4a9eff;
+    text-decoration: none;
+}
+
+.credits a:hover {
+    text-decoration: underline;
+}
+
+/* Notification styles */
+.notification {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background-color: #333;
+    color: #fff;
+    padding: 15px 20px;
+    border-radius: 4px;
+    border: 1px solid #555;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+    z-index: 1100;
+    max-width: 400px;
+    animation: slideIn 0.3s ease-out;
+}
+
+.notification.error {
+    background-color: #5a2020;
+    border-color: #aa4444;
+}
+
+.notification.info {
+    background-color: #204a5a;
+    border-color: #4488aa;
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateX(400px);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+@keyframes slideOut {
+    from {
+        transform: translateX(0);
+        opacity: 1;
+    }
+    to {
+        transform: translateX(400px);
+        opacity: 0;
+    }
+}
+
+.notification.hiding {
+    animation: slideOut 0.3s ease-in;
+}
+
+/* Info modal for About and Shortcuts */
+.info-modal {
+    white-space: pre-wrap;
+    line-height: 1.6;
+}
+
+/* Confirm dialog styles */
+.confirm-dialog {
+    text-align: center;
+}
+
+.confirm-message {
+    margin-bottom: 30px;
+    font-size: 16px;
+}
+
+.confirm-buttons {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+}
+
+.confirm-buttons button {
+    min-width: 100px;
+}
+
+.confirm-buttons .confirm-yes {
+    background-color: #d9534f;
+    border-color: #d43f3a;
+}
+
+.confirm-buttons .confirm-yes:hover {
+    background-color: #c9302c;
+    border-color: #ac2925;
+}

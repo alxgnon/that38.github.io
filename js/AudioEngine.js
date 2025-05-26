@@ -192,19 +192,6 @@ export class AudioEngine {
                             console.warn(`Warning: ${sampleName} has very low amplitude (range: ${minSample} to ${maxSample})`);
                         }
                         
-                        // Special check for M06 waveform characteristics
-                        if (sampleName === 'ORG_M06') {
-                            // Analyze the waveform shape
-                            let peakCount = 0;
-                            let lastSample = channelData[0];
-                            for (let i = 1; i < 256; i++) {
-                                if ((lastSample <= 0 && channelData[i] > 0) || (lastSample >= 0 && channelData[i] < 0)) {
-                                    peakCount++;
-                                }
-                                lastSample = channelData[i];
-                            }
-                            console.log(`M06 waveform: ${peakCount} zero crossings, amplitude range: ${minSample} to ${maxSample}`);
-                        }
                         
                         
                         this.loadedSamples.set(sampleName, audioBuffer);
@@ -258,9 +245,21 @@ export class AudioEngine {
             return;
         }
         
-        // Stop any existing note on this key first
+        // Handle existing note on this key
         if (this.activeNotes.has(keyNumber)) {
-            this.stopNote(keyNumber);
+            const existingNote = this.activeNotes.get(keyNumber);
+            if (existingNote && !existingNote.isDrum) {
+                // Instead of stopping immediately, let it fade naturally
+                // Set loop to false so it stops at the end of the current cycle
+                if (existingNote.source && existingNote.source.loop !== undefined) {
+                    existingNote.source.loop = false;
+                }
+                // Remove from active notes but let it play out
+                this.activeNotes.delete(keyNumber);
+            } else {
+                // Drums stop immediately
+                this.stopNote(keyNumber);
+            }
         }
         
         const buffer = await this.loadSample(sampleName);

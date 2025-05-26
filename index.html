@@ -273,6 +273,101 @@
             background: #2f2f2f !important;
             border-color: #555 !important;
         }
+        
+        /* Modal styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.7);
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .modal.show {
+            display: flex;
+        }
+        
+        .modal-content {
+            background-color: #2a2a2a;
+            padding: 20px;
+            border: 1px solid #555;
+            width: 500px;
+            max-width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            border-radius: 4px;
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #444;
+        }
+        
+        .modal-title {
+            font-size: 18px;
+            font-weight: bold;
+        }
+        
+        .modal-close {
+            font-size: 24px;
+            cursor: pointer;
+            color: #999;
+            background: none;
+            border: none;
+            padding: 0;
+            width: 30px;
+            height: 30px;
+        }
+        
+        .modal-close:hover {
+            color: #fff;
+        }
+        
+        .song-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        
+        .song-item {
+            padding: 10px;
+            cursor: pointer;
+            border: 1px solid #444;
+            margin-bottom: 5px;
+            border-radius: 4px;
+            transition: background-color 0.2s;
+        }
+        
+        .song-item:hover {
+            background-color: #3a3a3a;
+        }
+        
+        .credits {
+            position: fixed;
+            bottom: 10px;
+            right: 10px;
+            font-size: 12px;
+            color: #888;
+            text-align: right;
+        }
+        
+        .credits a {
+            color: #4a9eff;
+            text-decoration: none;
+        }
+        
+        .credits a:hover {
+            text-decoration: underline;
+        }
     </style>
 </head>
 <body>
@@ -3186,32 +3281,24 @@
                 if (orgPath) {
                     // Handle directory browsing
                     if (orgPath.endsWith('/')) {
-                        // Open directory browser
-                        fetch(orgPath)
-                            .then(response => response.text())
-                            .then(html => {
-                                // Simple parsing of directory listing
-                                const parser = new DOMParser();
-                                const doc = parser.parseFromString(html, 'text/html');
-                                const links = doc.querySelectorAll('a');
-                                const orgFiles = Array.from(links)
-                                    .map(a => a.href)
-                                    .filter(href => href.endsWith('.org'))
-                                    .map(href => href.split('/').pop());
-                                
+                        // Open directory browser using index.json
+                        fetch(orgPath + 'index.json')
+                            .then(response => {
+                                if (!response.ok) {
+                                    throw new Error(`HTTP error! status: ${response.status}`);
+                                }
+                                return response.json();
+                            })
+                            .then(orgFiles => {
                                 if (orgFiles.length > 0) {
-                                    const fileList = orgFiles.join('\n');
-                                    const selectedFile = prompt(`Select a song:\n\n${fileList}\n\nEnter filename:`);
-                                    if (selectedFile && orgFiles.includes(selectedFile)) {
-                                        loadOrgFromPath(orgPath + selectedFile);
-                                    }
+                                    // Show modal with song list
+                                    showSongModal(orgFiles, orgPath);
                                 } else {
-                                    alert('No .org files found in this directory');
+                                    console.error('No .org files found in this directory');
                                 }
                             })
                             .catch(err => {
-                                console.error('Error browsing directory:', err);
-                                alert('Could not browse directory');
+                                console.error('Error loading song list:', err);
                             });
                     } else {
                         // Load specific org file
@@ -3351,7 +3438,7 @@
                         orgInput.click();
                         break;
                     case 'menu-about':
-                        alert('That 72edo Piano Roll\n\nA microtonal music sequencer with 72 equal divisions of the octave.\n\nBuilt with Web Audio API\nSounds from Org Maker');
+                        alert('That 72edo Piano Roll\n\nA microtonal music sequencer with 72 equal divisions of the octave.\n\nBuilt with Web Audio API\nSounds from Org Maker\n\nMusic by Pixel (Cave Story)');
                         break;
                     case 'menu-shortcuts':
                         alert('Keyboard Shortcuts:\n\n' +
@@ -3401,9 +3488,44 @@
                 })
                 .catch(error => {
                     console.error('Error loading org file:', error);
-                    alert(`Failed to load ${path}: ${error.message}`);
                 });
         }
+        
+        // Function to show song selection modal
+        function showSongModal(songs, basePath) {
+            const modal = document.getElementById('songModal');
+            const songList = document.getElementById('songList');
+            
+            // Clear previous songs
+            songList.innerHTML = '';
+            
+            // Add songs to list
+            songs.forEach(song => {
+                const li = document.createElement('li');
+                li.className = 'song-item';
+                li.textContent = song;
+                li.onclick = () => {
+                    loadOrgFromPath(basePath + song);
+                    modal.classList.remove('show');
+                };
+                songList.appendChild(li);
+            });
+            
+            // Show modal
+            modal.classList.add('show');
+        }
+        
+        // Modal close handlers
+        document.querySelector('.modal-close').addEventListener('click', () => {
+            document.getElementById('songModal').classList.remove('show');
+        });
+        
+        // Close modal when clicking outside
+        document.getElementById('songModal').addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) {
+                e.currentTarget.classList.remove('show');
+            }
+        });
         
         // Initialize checkbox states
         document.getElementById('menu-grid-snap').classList.add('checked');
@@ -3414,5 +3536,24 @@
         
         // Start with empty grid
     </script>
+    
+    <!-- Song Selection Modal -->
+    <div id="songModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">Select a Song</h2>
+                <button class="modal-close">&times;</button>
+            </div>
+            <ul class="song-list" id="songList">
+                <!-- Songs will be populated here -->
+            </ul>
+        </div>
+    </div>
+    
+    <!-- Credits -->
+    <div class="credits">
+        <div>Music by <a href="https://www.cavestory.org/" target="_blank">Pixel</a></div>
+        <div>That 72edo Piano Roll</div>
+    </div>
 </body>
 </html>

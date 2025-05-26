@@ -30,6 +30,7 @@ export class NoteManager {
             velocity: noteData.velocity || 100,
             pan: noteData.pan || 0,
             instrument: noteData.instrument,
+            pipi: noteData.pipi !== undefined ? noteData.pipi : null,
             id: this.generateNoteId()
         };
         

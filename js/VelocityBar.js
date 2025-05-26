@@ -49,6 +49,17 @@ export class VelocityBar {
         const note = this.findNoteAtX(x);
         if (note) {
             this.draggingNote = note;
+            
+            // Store initial velocity values for all selected notes
+            if (this.pianoRoll.noteManager.selectedNotes.has(note)) {
+                this.initialVelocityValues = new Map();
+                for (const selectedNote of this.pianoRoll.noteManager.selectedNotes) {
+                    this.initialVelocityValues.set(selectedNote, selectedNote.velocity || 100);
+                }
+                this.dragStartY = y;
+                this.dragStartVelocity = note.velocity || 100;
+            }
+            
             this.updateNoteVelocity(note, y);
         }
     }
@@ -59,7 +70,22 @@ export class VelocityBar {
         const y = e.clientY - rect.top;
         
         if (this.draggingNote) {
-            this.updateNoteVelocity(this.draggingNote, y);
+            if (this.initialVelocityValues && this.pianoRoll.noteManager.selectedNotes.has(this.draggingNote)) {
+                // Update all selected notes relative to the drag
+                const currentVelocity = Math.round((1 - y / this.canvas.height) * 127);
+                const velocityDelta = currentVelocity - this.dragStartVelocity;
+                
+                for (const [note, initialVelocity] of this.initialVelocityValues) {
+                    const newVelocity = Math.max(0, Math.min(127, initialVelocity + velocityDelta));
+                    note.velocity = Math.round(newVelocity);
+                }
+                
+                this.pianoRoll.dirty = true;
+                this.draw();
+            } else {
+                // Update single note
+                this.updateNoteVelocity(this.draggingNote, y);
+            }
         } else {
             const note = this.findNoteAtX(x);
             if (note !== this.hoveredNote) {
@@ -72,6 +98,9 @@ export class VelocityBar {
     
     handleMouseUp() {
         this.draggingNote = null;
+        this.initialVelocityValues = null;
+        this.dragStartY = null;
+        this.dragStartVelocity = null;
     }
     
     handleMouseLeave() {

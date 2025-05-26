@@ -29,6 +29,24 @@ export class AudioEngine {
         
         // Tempo for envelope timing
         this.currentBPM = 120;
+        
+        // Default pipi values for instruments
+        // Based on organya-js: pipi=0 means infinite loop, pipi=1 means finite loops
+        // These are typical settings, actual songs may override per track
+        this.defaultPipi = new Map([
+            // Finite loop instruments (pipi = 1/true)
+            ['ORG_M00', true], // Piano
+            ['ORG_M01', true], // Piano 2
+            ['ORG_M02', true], // Piano 3
+            ['ORG_M03', true], // Piano 4
+            ['ORG_M04', true], // Electric Piano
+            ['ORG_M05', true], // Electric Piano 2
+            ['ORG_M06', true], // Bell
+            ['ORG_M07', true], // Bell 2
+            ['ORG_M08', true], // Marimba
+            ['ORG_M09', true], // Xylophone
+            // Most other instruments loop infinitely by default (pipi = 0/false)
+        ]);
     }
 
     /**
@@ -172,6 +190,8 @@ export class AudioEngine {
                             channelData[i] = this.wavetable[256 * waveIndex + i] / 128;
                         }
                         
+                        console.log(`Created melodic buffer for ${sampleName}, first few samples:`, channelData.slice(0, 10));
+                        
                         this.loadedSamples.set(sampleName, audioBuffer);
                         return audioBuffer;
                     }
@@ -216,7 +236,7 @@ export class AudioEngine {
      * @param {number} when - When to play (audio context time)
      * @param {number} duration - Note duration in seconds
      */
-    async playNote(keyNumber, velocity = 100, sampleName, isGlissando = false, pan = 0, when = 0, duration = 0, pipi = false) {
+    async playNote(keyNumber, velocity = 100, sampleName, isGlissando = false, pan = 0, when = 0, duration = 0, pipi = null) {
         // For glissando with portamento, update existing note's pitch
         if (isGlissando && this.currentGlissandoNote) {
             this.updateGlissandoPitch(keyNumber, sampleName);
@@ -255,35 +275,42 @@ export class AudioEngine {
         const orgVol = velocity * ORG_VELOCITY_SCALE;
         const authenticVolume = Math.pow(10, ((orgVol - 255) * 8) / 2000);
         
+        console.log(`Playing ${sampleName}: isDrum=${isDrum}, velocity=${velocity}, volume=${authenticVolume}, pipi=${pipi}`);
+        
         if (isDrum) {
             source.loop = false;
             gain.gain.setValueAtTime(authenticVolume, startTime);
         } else {
             // pipi affects looping behavior:
-            // pipi=0: loops the short waveform
-            // pipi=1: plays once with decay (simulating the extended waveform)
-            source.loop = !pipi;
+            // Based on organya-js implementation:
+            // pipi=0: loops infinitely
+            // pipi!=0: loops (octave + 1) * 4 times
+            // Use default pipi value for instrument if not specified
+            const actualPipi = pipi !== null ? pipi : (this.defaultPipi.get(sampleName) ?? true);
+            
+            if (actualPipi === false || actualPipi === 0) {
+                // Infinite loop
+                source.loop = true;
+                console.log(`Melodic instrument ${sampleName}: infinite loop (pipi=0)`);
+            } else {
+                // Calculate number of loops based on octave
+                const octave = Math.floor(keyNumber / NOTES_PER_OCTAVE);
+                const numLoops = (octave + 1) * 4;
+                
+                // For now, we'll loop and let the note duration control the length
+                // In the future, we could implement finite looping
+                source.loop = true;
+                console.log(`Melodic instrument ${sampleName}: should loop ${numLoops} times (pipi=1), using infinite loop for now`);
+            }
             
             // Simple attack to prevent clicks
             gain.gain.setValueAtTime(0, startTime);
             gain.gain.linearRampToValueAtTime(authenticVolume, startTime + 0.002);
-            
-            if (pipi) {
-                // When pipi=1, simulate the decay that would be in the extended waveform
-                // In the original, the waveform is extended 4-32x with natural decay
-                // We'll simulate this with an envelope
-                const beatDuration = 60 / this.currentBPM;
-                
-                // Hold at full volume for one beat
-                gain.gain.setValueAtTime(authenticVolume, startTime + beatDuration);
-                
-                // Then decay to 40% over the next 2 beats (simulating the extended waveform decay)
-                gain.gain.exponentialRampToValueAtTime(authenticVolume * 0.4, startTime + beatDuration * 3);
-            }
         }
         
         // Start playback at scheduled time
         source.start(startTime);
+        console.log(`Started source at time ${startTime}, current time: ${this.audioContext.currentTime}`);
         
         // Schedule stop if duration provided
         if (duration > 0) {

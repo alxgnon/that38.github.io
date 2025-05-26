@@ -49,6 +49,17 @@ export class PanBar {
         const note = this.findNoteAtX(x);
         if (note) {
             this.draggingNote = note;
+            
+            // Store initial pan values for all selected notes
+            if (this.pianoRoll.noteManager.selectedNotes.has(note)) {
+                this.initialPanValues = new Map();
+                for (const selectedNote of this.pianoRoll.noteManager.selectedNotes) {
+                    this.initialPanValues.set(selectedNote, selectedNote.pan || 0);
+                }
+                this.dragStartY = y;
+                this.dragStartPan = note.pan || 0;
+            }
+            
             this.updateNotePan(note, y);
         }
     }
@@ -59,7 +70,23 @@ export class PanBar {
         const y = e.clientY - rect.top;
         
         if (this.draggingNote) {
-            this.updateNotePan(this.draggingNote, y);
+            if (this.initialPanValues && this.pianoRoll.noteManager.selectedNotes.has(this.draggingNote)) {
+                // Update all selected notes relative to the drag
+                const centerY = this.canvas.height / 2;
+                const currentPan = Math.round(((centerY - y) / centerY) * 100);
+                const panDelta = currentPan - this.dragStartPan;
+                
+                for (const [note, initialPan] of this.initialPanValues) {
+                    const newPan = Math.max(-100, Math.min(100, initialPan + panDelta));
+                    note.pan = Math.round(newPan);
+                }
+                
+                this.pianoRoll.dirty = true;
+                this.draw();
+            } else {
+                // Update single note
+                this.updateNotePan(this.draggingNote, y);
+            }
         } else {
             const note = this.findNoteAtX(x);
             if (note !== this.hoveredNote) {
@@ -72,6 +99,9 @@ export class PanBar {
     
     handleMouseUp() {
         this.draggingNote = null;
+        this.initialPanValues = null;
+        this.dragStartY = null;
+        this.dragStartPan = null;
     }
     
     handleMouseLeave() {

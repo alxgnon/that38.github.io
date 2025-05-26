@@ -34,17 +34,17 @@ export class AudioEngine {
         // Based on organya-js: pipi=0 means infinite loop, pipi=1 means finite loops
         // These are typical settings, actual songs may override per track
         this.defaultPipi = new Map([
-            // Finite loop instruments (pipi = 1/true)
-            ['ORG_M00', true], // Piano
-            ['ORG_M01', true], // Piano 2
-            ['ORG_M02', true], // Piano 3
-            ['ORG_M03', true], // Piano 4
-            ['ORG_M04', true], // Electric Piano
-            ['ORG_M05', true], // Electric Piano 2
-            ['ORG_M06', true], // Bell
-            ['ORG_M07', true], // Bell 2
-            ['ORG_M08', true], // Marimba
-            ['ORG_M09', true], // Xylophone
+            // Finite loop instruments (pipi = 1/true) - typically percussive sounds
+            ['ORG_M00', true],
+            ['ORG_M01', true],
+            ['ORG_M02', true],
+            ['ORG_M03', true],
+            ['ORG_M04', true],
+            ['ORG_M05', true],
+            ['ORG_M06', true],
+            ['ORG_M07', true],
+            ['ORG_M08', true],
+            ['ORG_M09', true],
             // Most other instruments loop infinitely by default (pipi = 0/false)
         ]);
     }

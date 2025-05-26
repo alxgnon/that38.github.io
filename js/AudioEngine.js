@@ -285,13 +285,14 @@ export class AudioEngine {
                 // Let drums play out naturally
             } else {
                 // Schedule note off with release envelope
-                const releaseTime = 0.05; // 50ms release
+                const releaseTime = 0.1; // 100ms release for smoother fade
                 
-                // Hold at sustain level until near the end
-                gain.gain.setValueAtTime(authenticVolume * 0.8, stopTime - releaseTime);
+                // Cancel any scheduled changes and set current value
+                gain.gain.cancelScheduledValues(stopTime - releaseTime);
+                gain.gain.setValueAtTime(gain.gain.value, stopTime - releaseTime);
                 
                 // Release envelope
-                gain.gain.linearRampToValueAtTime(0, stopTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, stopTime);
                 
                 // Stop the source after release
                 source.stop(stopTime + releaseTime);

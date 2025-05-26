@@ -264,13 +264,13 @@ export class AudioEngine {
             gain.gain.linearRampToValueAtTime(authenticVolume, startTime + 0.005);
             
             // Hold at full volume for one beat (or until note is shorter)
-            const beatDuration = 60 / 120; // Default 120 BPM = 0.5 seconds per beat
+            const beatDuration = 60 / this.currentBPM; // seconds per beat
             const holdTime = Math.min(beatDuration, duration * 0.8); // Don't hold longer than 80% of note
             
             if (duration > holdTime + 0.1) {
-                // After the beat, drop to 40% volume (more dramatic than before)
+                // After the beat, drop to 65% volume (more subtle envelope)
                 gain.gain.setValueAtTime(authenticVolume, startTime + holdTime);
-                gain.gain.linearRampToValueAtTime(authenticVolume * 0.4, startTime + holdTime + 0.05);
+                gain.gain.exponentialRampToValueAtTime(authenticVolume * 0.65, startTime + holdTime + 0.05);
             }
         }
         

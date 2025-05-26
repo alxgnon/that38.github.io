@@ -259,23 +259,8 @@ export class AudioEngine {
         }
         
         // Stop any existing note on this key first
-        // For scheduled notes, delay the stop slightly to avoid gaps
         if (this.activeNotes.has(keyNumber)) {
-            if (when && when > this.audioContext.currentTime) {
-                // Scheduled note - stop the old one just as the new one starts
-                const existingNote = this.activeNotes.get(keyNumber);
-                if (existingNote && existingNote.source) {
-                    try {
-                        existingNote.source.stop(when);
-                    } catch (e) {
-                        // Already stopped
-                    }
-                }
-                this.activeNotes.delete(keyNumber);
-            } else {
-                // Immediate note - stop right away
-                this.stopNote(keyNumber);
-            }
+            this.stopNote(keyNumber);
         }
         
         const buffer = await this.loadSample(sampleName);
@@ -350,7 +335,6 @@ export class AudioEngine {
             }
             
             // Simple attack to prevent clicks
-            // For very short notes, use instant attack
             if (duration > 0 && duration < 0.05) {
                 gain.gain.setValueAtTime(authenticVolume, startTime);
             } else {
@@ -472,8 +456,8 @@ export class AudioEngine {
                     note.source.stop(now + AUDIO_STOP_DELAY);
                     note.gain.gain.setValueAtTime(0, now + AUDIO_STOP_DELAY);
                 } else {
-                    // Melodic instruments use release envelope
-                    const releaseTime = 0.05; // 50ms release
+                    // Melodic instruments use very short release to maintain articulation
+                    const releaseTime = 0.005; // 5ms release for sharper cutoff
                     note.gain.gain.cancelScheduledValues(now);
                     note.gain.gain.setValueAtTime(note.gain.gain.value, now);
                     note.gain.gain.linearRampToValueAtTime(0, now + releaseTime);

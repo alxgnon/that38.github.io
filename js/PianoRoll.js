@@ -221,6 +221,12 @@ export class PianoRoll {
                     const noteStartTime = scheduleTime + noteOffsetTime;
                     const noteDuration = (note.width / measureWidth) * (this.measureDuration / 1000);
                     
+                    // Debug 1-beat notes
+                    const beatsInNote = note.width / this.gridWidth;
+                    if (beatsInNote <= 1.1 && note.instrument && (note.instrument.includes('M1') || note.instrument.includes('M2'))) {
+                        console.log(`1-beat note: ${note.instrument} width:${note.width} beats:${beatsInNote.toFixed(2)} duration:${noteDuration.toFixed(3)}s`);
+                    }
+                    
                     if (noteStartTime >= currentTime) {
                         // Don't await - schedule all notes immediately
                         this.scheduleNoteAtTime(note, noteStartTime, noteDuration);

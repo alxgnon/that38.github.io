@@ -172,9 +172,24 @@ export class AudioEngine {
                         );
                         const channelData = audioBuffer.getChannelData(0);
                         
+                        let hasSound = false;
+                        let minSample = 127;
+                        let maxSample = -128;
                         for (let i = 0; i < 256; i++) {
-                            // Convert signed 8-bit to float
-                            channelData[i] = this.wavetable[256 * waveIndex + i] / 128;
+                            // Get signed 8-bit sample
+                            const sample = this.wavetable[256 * waveIndex + i];
+                            // Convert to float (-1 to 1 range)
+                            channelData[i] = sample / 128;
+                            if (sample !== 0) hasSound = true;
+                            minSample = Math.min(minSample, sample);
+                            maxSample = Math.max(maxSample, sample);
+                        }
+                        
+                        // Check if waveform is silent or very quiet
+                        if (!hasSound) {
+                            console.warn(`Warning: ${sampleName} waveform appears to be silent (all zeros)`);
+                        } else if (maxSample - minSample < 10) {
+                            console.warn(`Warning: ${sampleName} has very low amplitude (range: ${minSample} to ${maxSample})`);
                         }
                         
                         
@@ -261,6 +276,12 @@ export class AudioEngine {
         const orgVol = velocity * ORG_VELOCITY_SCALE;
         const authenticVolume = Math.pow(10, ((orgVol - 255) * 8) / 2000);
         
+        // Log instrument details for debugging
+        if (!isDrum && (sampleName.includes('M1') || sampleName.includes('M2'))) {
+            const octave = Math.floor(keyNumber / NOTES_PER_OCTAVE);
+            console.log(`${sampleName} key:${keyNumber} oct:${octave} vel:${velocity} vol:${authenticVolume.toFixed(3)} dur:${duration?.toFixed(2)}s pipi:${pipi}`);
+        }
+        
         
         if (isDrum) {
             source.loop = false;
@@ -272,14 +293,30 @@ export class AudioEngine {
             // Default to infinite loop if not specified
             const actualPipi = pipi !== null ? pipi : false;
             
-            // Both pipi values result in looping - the difference is duration
-            // pipi=false: loop until note ends
-            // pipi=true: should loop (octave+1)*4 times, but we'll let note duration control it
+            // For now, always loop to ensure notes play for their full duration
+            // TODO: Implement proper finite looping with extended buffers
             source.loop = true;
             
+            // Calculate theoretical loop duration for pipi=true instruments
+            if (actualPipi === true) {
+                const octave = Math.floor(keyNumber / NOTES_PER_OCTAVE);
+                const numLoops = (octave + 1) * 4;
+                const playbackRate = this.calculatePlaybackRate(keyNumber, sampleName, false);
+                const loopDuration = (256 * numLoops) / (this.audioContext.sampleRate * playbackRate);
+                
+                if (duration > 0 && loopDuration < duration) {
+                    console.warn(`Note ${sampleName} oct:${octave} would end early: ${loopDuration.toFixed(3)}s < ${duration.toFixed(3)}s`);
+                }
+            }
+            
             // Simple attack to prevent clicks
-            gain.gain.setValueAtTime(0, startTime);
-            gain.gain.linearRampToValueAtTime(authenticVolume, startTime + 0.002);
+            // For very short notes, use instant attack
+            if (duration > 0 && duration < 0.05) {
+                gain.gain.setValueAtTime(authenticVolume, startTime);
+            } else {
+                gain.gain.setValueAtTime(0, startTime);
+                gain.gain.linearRampToValueAtTime(authenticVolume, startTime + 0.002);
+            }
         }
         
         // Start playback at scheduled time
@@ -293,17 +330,24 @@ export class AudioEngine {
                 // Let drums play out naturally
             } else {
                 // Schedule note off with release envelope
-                const releaseTime = 0.1; // 100ms release for smoother fade
+                // Use shorter release for very short notes
+                const releaseTime = Math.min(0.1, duration * 0.2); // Max 100ms or 20% of note duration
                 
-                // Cancel any scheduled changes and set current value
-                gain.gain.cancelScheduledValues(stopTime - releaseTime);
-                gain.gain.setValueAtTime(gain.gain.value, stopTime - releaseTime);
-                
-                // Release envelope
-                gain.gain.exponentialRampToValueAtTime(0.001, stopTime);
-                
-                // Stop the source after release
-                source.stop(stopTime + releaseTime);
+                // Ensure we have enough time for the release
+                if (stopTime - releaseTime > startTime + 0.002) {
+                    // Cancel any scheduled changes and set current value
+                    gain.gain.cancelScheduledValues(stopTime - releaseTime);
+                    gain.gain.setValueAtTime(gain.gain.value, stopTime - releaseTime);
+                    
+                    // Release envelope
+                    gain.gain.exponentialRampToValueAtTime(0.001, stopTime);
+                    
+                    // Stop the source after release
+                    source.stop(stopTime + releaseTime);
+                } else {
+                    // Note too short for release envelope, just stop
+                    source.stop(stopTime);
+                }
             }
             
             // Return noteData for tracking

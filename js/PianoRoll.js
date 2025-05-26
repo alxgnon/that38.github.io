@@ -92,6 +92,10 @@ export class PianoRoll {
         await this.audioEngine.loadWavetable();
         await this.initializeSamples();
         this.dirty = true; // Trigger initial draw
+        
+        // Emit initial scroll position
+        this.emit('scroll', { scrollX: this.scrollX, scrollY: this.scrollY });
+        
         this.animate();
     }
 
@@ -174,6 +178,9 @@ export class PianoRoll {
         }
         
         this.dirty = true;
+        
+        // Emit playback update for pan/velocity bars
+        this.emit('playbackUpdate', { currentMeasure: this.currentMeasure });
     }
 
     scheduleNotes() {
@@ -276,6 +283,11 @@ export class PianoRoll {
                 this.currentMeasure = 0;
                 this.lastScheduledEndTime = 0;
                 this.lastScheduledMeasure = 0;
+                
+                // Update scroll position if in follow mode
+                if (this.followMode) {
+                    this.scrollToMeasure();
+                }
             }
             
             this.isPaused = false;
@@ -372,7 +384,10 @@ export class PianoRoll {
         const targetScrollX = Math.max(0, measureStartX - this.pianoKeyWidth);
         
         // Snap immediately to target position
-        this.scrollX = targetScrollX;
+        if (this.scrollX !== targetScrollX) {
+            this.scrollX = targetScrollX;
+            this.emit('scroll', { scrollX: this.scrollX, scrollY: this.scrollY });
+        }
     }
 
     async loadOrgFile(arrayBuffer) {
@@ -398,10 +413,38 @@ export class PianoRoll {
             document.getElementById('loopEndInput').value = converted.loopEnd + 1;
             
             this.dirty = true;
+            
+            // Notify that notes have changed so pan/velocity bars update
+            this.emit('notesChanged');
+            
             return true;
         } catch (error) {
             console.error('Failed to load ORG file:', error);
             throw error;
         }
+    }
+    
+    // Event system
+    addEventListener(event, callback) {
+        if (!this.listeners) {
+            this.listeners = {};
+        }
+        if (!this.listeners[event]) {
+            this.listeners[event] = [];
+        }
+        this.listeners[event].push(callback);
+    }
+    
+    removeEventListener(event, callback) {
+        if (!this.listeners || !this.listeners[event]) return;
+        const index = this.listeners[event].indexOf(callback);
+        if (index > -1) {
+            this.listeners[event].splice(index, 1);
+        }
+    }
+    
+    emit(event, data) {
+        if (!this.listeners || !this.listeners[event]) return;
+        this.listeners[event].forEach(callback => callback(data));
     }
 }

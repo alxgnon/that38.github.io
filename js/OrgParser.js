@@ -184,6 +184,8 @@ export class OrgParser {
         const notes = [];
         const { header, instruments, tracks } = orgData;
         
+        // Removed debug code
+        
         // ORG 'wait' value represents milliseconds per tick
         // Lower wait = faster tempo
         const msPerTick = header.wait;
@@ -216,7 +218,11 @@ export class OrgParser {
                 const velocity = Math.round(note.volume / 2);
                 
                 // Convert pan (0-12 in ORG, 6 = center)
-                const pan = (note.pan - 6) * 100 / 6;
+                // 255 is a special value meaning "no pan" or "default center"
+                let pan = 0;
+                if (note.pan !== 255 && note.pan <= 12) {
+                    pan = (note.pan - 6) * 100 / 6;
+                }
                 
                 notes.push({
                     x,

@@ -163,7 +163,7 @@ export class Renderer {
         if (!this.pianoRoll.loopEnabled) return;
         
         const loopStartX = PIANO_KEY_WIDTH + this.pianoRoll.loopStart * GRID_WIDTH * BEATS_PER_MEASURE;
-        const loopEndX = PIANO_KEY_WIDTH + (this.pianoRoll.loopEnd + 1) * GRID_WIDTH * BEATS_PER_MEASURE;
+        const loopEndX = PIANO_KEY_WIDTH + this.pianoRoll.loopEnd * GRID_WIDTH * BEATS_PER_MEASURE;
         
         // Draw loop background
         this.ctx.fillStyle = COLORS.loopBackground;
@@ -226,22 +226,34 @@ export class Renderer {
         const instrumentColor = this.pianoRoll.getInstrumentColor(note.instrument);
         
         // Draw note body
-        this.ctx.fillStyle = isPlaying ? instrumentColor.border : instrumentColor.note;
         if (isSelected) {
-            this.ctx.fillStyle = this.adjustBrightness(this.ctx.fillStyle, 30);
+            // Use orange for selected notes
+            this.ctx.fillStyle = '#ffa500';
+        } else if (isPlaying) {
+            this.ctx.fillStyle = instrumentColor.border;
+        } else {
+            this.ctx.fillStyle = instrumentColor.note;
         }
         
         this.ctx.fillRect(note.x, note.y, note.width, note.height);
         
         // Draw note border
-        this.ctx.strokeStyle = instrumentColor.border;
-        this.ctx.lineWidth = 1;
+        if (isSelected) {
+            this.ctx.strokeStyle = '#ff8800';
+            this.ctx.lineWidth = 2;
+        } else {
+            this.ctx.strokeStyle = instrumentColor.border;
+            this.ctx.lineWidth = 1;
+        }
         this.ctx.strokeRect(note.x, note.y, note.width, note.height);
         
         // Draw velocity indicator (darker = lower velocity)
-        const velocityAlpha = 1 - (note.velocity / 127) * 0.6;
-        this.ctx.fillStyle = `rgba(0, 0, 0, ${velocityAlpha})`;
-        this.ctx.fillRect(note.x, note.y, note.width, note.height);
+        // Skip velocity overlay for selected notes to keep orange color clear
+        if (!isSelected) {
+            const velocityAlpha = 1 - (note.velocity / 127) * 0.6;
+            this.ctx.fillStyle = `rgba(0, 0, 0, ${velocityAlpha})`;
+            this.ctx.fillRect(note.x, note.y, note.width, note.height);
+        }
         
         // Draw pan indicator if not centered
         if (Math.abs(note.pan) > 5) {

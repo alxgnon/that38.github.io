@@ -6,6 +6,7 @@ export class MenuManager {
         this.menus = new Map();
         this.activeMenu = null;
         this.setupEventListeners();
+        this.initializeAllMenus();
     }
 
     /**
@@ -26,14 +27,8 @@ export class MenuManager {
     setupMenuItem(menuId) {
         const menuItem = document.querySelector(`[data-menu="${menuId}"]`);
         if (!menuItem) return;
-        
-        // Toggle menu on click
-        menuItem.addEventListener('click', (e) => {
-            e.stopPropagation();
-            this.toggleMenu(menuId);
-        });
 
-        // Setup menu options
+        // Setup menu options (click and hover handlers are already set up in initializeAllMenus)
         const items = this.menus.get(menuId);
         const dropdown = menuItem.querySelector('.menu-dropdown');
         if (items && dropdown) {
@@ -136,6 +131,17 @@ export class MenuManager {
 
         // Open this menu if it wasn't active
         if (!isActive) {
+            this.openMenu(menuId);
+        }
+    }
+    
+    /**
+     * Open a specific menu
+     * @param {string} menuId - Menu ID
+     */
+    openMenu(menuId) {
+        const menuItem = document.querySelector(`[data-menu="${menuId}"]`);
+        if (menuItem) {
             menuItem.classList.add('active');
             this.activeMenu = menuId;
         }
@@ -211,6 +217,30 @@ export class MenuManager {
                 e.preventDefault();
                 handler();
             }
+        });
+    }
+
+    /**
+     * Initialize all menu items for hover behavior
+     */
+    initializeAllMenus() {
+        // Set up mouseenter for all menu items, even those not registered yet
+        document.querySelectorAll('.menu-item[data-menu]').forEach(menuItem => {
+            const menuId = menuItem.getAttribute('data-menu');
+            
+            // Add click handler
+            menuItem.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.toggleMenu(menuId);
+            });
+            
+            // Add mouseenter handler for drag-to-open
+            menuItem.addEventListener('mouseenter', (e) => {
+                if (this.activeMenu && this.activeMenu !== menuId) {
+                    this.closeAll();
+                    this.openMenu(menuId);
+                }
+            });
         });
     }
 

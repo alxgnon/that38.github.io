@@ -146,12 +146,14 @@ export class InputHandler {
         const note = this.pianoRoll.noteManager.getNoteAt(x, y);
         if (note) {
             this.pianoRoll.noteManager.deleteNote(note);
+            this.pianoRoll.emit('notesChanged');
             this.pianoRoll.dirty = true;
         } else {
             // Start delete selection box
             this.isDeleteSelecting = true;
             this.selectionBox = { x1: x, y1: y, x2: x, y2: y };
             this.pianoRoll.noteManager.selectedNotes.clear();
+            this.pianoRoll.emit('selectionChanged');
             this.pianoRoll.dirty = true;
         }
     }
@@ -181,6 +183,7 @@ export class InputHandler {
             } else {
                 this.pianoRoll.noteManager.selectedNotes.add(note);
             }
+            this.pianoRoll.emit('selectionChanged');
             this.pianoRoll.dirty = true;
         } else {
             // Check for resize
@@ -204,14 +207,19 @@ export class InputHandler {
         
         if (!isNoteSelected && !this.shiftKeyHeld) {
             this.pianoRoll.noteManager.selectedNotes.clear();
+            this.pianoRoll.emit('selectionChanged');
         }
         
-        // Store original positions for all selected notes
+        // Store original positions
+        this.originalPositions = new Map();
         if (isNoteSelected || this.pianoRoll.noteManager.selectedNotes.has(note)) {
-            this.originalPositions = new Map();
+            // Store positions for all selected notes
             for (const n of this.pianoRoll.noteManager.selectedNotes) {
                 this.originalPositions.set(n, { x: n.x, y: n.y });
             }
+        } else {
+            // Store position for single note
+            this.originalPositions.set(note, { x: note.x, y: note.y });
         }
     }
 
@@ -264,8 +272,9 @@ export class InputHandler {
         const key = this.getKeyFromY(y);
         if (key < 0 || key >= NUM_OCTAVES * NOTES_PER_OCTAVE || x < PIANO_KEY_WIDTH) return;
         
+        const snappedX = this.pianoRoll.gridSnap ? this.pianoRoll.snapXToGrid(x) + PIANO_KEY_WIDTH : x;
         const noteData = {
-            x: this.pianoRoll.snapXToGrid(x) + PIANO_KEY_WIDTH,
+            x: snappedX,
             y: (NUM_OCTAVES * NOTES_PER_OCTAVE - 1 - key) * NOTE_HEIGHT,
             key: key,
             velocity: this.pianoRoll.currentVelocity,
@@ -277,9 +286,31 @@ export class InputHandler {
         this.isCreatingNote = true;
         this.createStartX = newNote.x;
         this.pianoRoll.noteManager.selectedNotes.clear();
+        this.pianoRoll.emit('notesChanged');
         this.pianoRoll.dirty = true;
     }
 
+    /**
+     * Handle note creation (extending width while dragging)
+     */
+    handleNoteCreation(x, y) {
+        if (!this.dragNote) return;
+        
+        // Extend note width based on current position
+        const newWidth = x - this.dragNote.x;
+        if (newWidth > 0) {
+            if (this.pianoRoll.gridSnap) {
+                // Snap the end position to grid
+                const subdivisionWidth = GRID_WIDTH / GRID_SUBDIVISIONS;
+                const snappedWidth = Math.ceil(newWidth / subdivisionWidth) * subdivisionWidth;
+                this.dragNote.width = Math.max(subdivisionWidth, snappedWidth);
+            } else {
+                this.dragNote.width = newWidth;
+            }
+            this.pianoRoll.dirty = true;
+        }
+    }
+    
     /**
      * Start panning
      */
@@ -310,6 +341,8 @@ export class InputHandler {
             this.handlePanning(x, y);
         } else if (this.isResizing) {
             this.handleResize(x, y);
+        } else if (this.isCreatingNote && this.dragNote) {
+            this.handleNoteCreation(x, y);
         } else if (this.isDragging) {
             this.handleDrag(x, y);
         } else if (this.isSelecting || this.isDeleteSelecting) {
@@ -371,17 +404,57 @@ export class InputHandler {
     handleDrag(x, y) {
         if (!this.dragNote) return;
         
-        const deltaX = x - this.dragStartX - this.dragNote.x;
-        const deltaY = y - this.dragStartY - this.dragNote.y;
+        // Calculate the target position (where the mouse is minus the offset within the note)
+        const targetX = x - this.dragStartX;
+        const targetY = y - this.dragStartY;
         
-        if (this.pianoRoll.noteManager.selectedNotes.has(this.dragNote)) {
-            // Move all selected notes
-            this.pianoRoll.noteManager.moveSelectedNotes(deltaX, deltaY, this.pianoRoll.gridSnap);
+        if (this.pianoRoll.noteManager.selectedNotes.has(this.dragNote) && this.originalPositions) {
+            // Calculate delta from original position of the dragged note
+            const originalDragPos = this.originalPositions.get(this.dragNote);
+            const deltaX = targetX - originalDragPos.x;
+            const deltaY = targetY - originalDragPos.y;
+            
+            // Move all selected notes by the same delta
+            for (const [note, originalPos] of this.originalPositions) {
+                let newX = originalPos.x + deltaX;
+                let newY = originalPos.y + deltaY;
+                
+                // Apply grid snap if enabled
+                if (this.pianoRoll.gridSnap) {
+                    const subdivisionWidth = GRID_WIDTH / GRID_SUBDIVISIONS;
+                    newX = Math.round((newX - PIANO_KEY_WIDTH) / subdivisionWidth) * 
+                           subdivisionWidth + PIANO_KEY_WIDTH;
+                }
+                
+                // Ensure note stays within bounds
+                newX = Math.max(PIANO_KEY_WIDTH, newX);
+                const newKey = this.getKeyFromY(newY);
+                if (newKey >= 0 && newKey < NUM_OCTAVES * NOTES_PER_OCTAVE) {
+                    note.x = newX;
+                    note.y = (NUM_OCTAVES * NOTES_PER_OCTAVE - 1 - newKey) * NOTE_HEIGHT;
+                    note.key = newKey;
+                }
+            }
         } else {
             // Move single note
-            this.dragNote.x += deltaX;
-            this.dragNote.y += deltaY;
-            this.dragNote.key = this.getKeyFromY(this.dragNote.y);
+            let newX = targetX;
+            let newY = targetY;
+            
+            // Apply grid snap if enabled
+            if (this.pianoRoll.gridSnap) {
+                const subdivisionWidth = GRID_WIDTH / GRID_SUBDIVISIONS;
+                newX = Math.round((newX - PIANO_KEY_WIDTH) / subdivisionWidth) * 
+                       subdivisionWidth + PIANO_KEY_WIDTH;
+            }
+            
+            // Ensure note stays within bounds
+            newX = Math.max(PIANO_KEY_WIDTH, newX);
+            const newKey = this.getKeyFromY(newY);
+            if (newKey >= 0 && newKey < NUM_OCTAVES * NOTES_PER_OCTAVE) {
+                this.dragNote.x = newX;
+                this.dragNote.y = (NUM_OCTAVES * NOTES_PER_OCTAVE - 1 - newKey) * NOTE_HEIGHT;
+                this.dragNote.key = newKey;
+            }
         }
         
         this.pianoRoll.dirty = true;
@@ -398,6 +471,7 @@ export class InputHandler {
         
         // Update selected notes
         this.pianoRoll.noteManager.selectNotesInRegion(this.selectionBox, this.shiftKeyHeld);
+        this.pianoRoll.emit('selectionChanged');
         this.pianoRoll.dirty = true;
     }
 
@@ -453,6 +527,7 @@ export class InputHandler {
         if (this.isSelecting || this.isDeleteSelecting) {
             if (this.isDeleteSelecting && this.selectionBox) {
                 this.pianoRoll.noteManager.deleteNotesInRegion(this.selectionBox);
+                this.pianoRoll.emit('notesChanged');
             }
             this.selectionBox = null;
         }
@@ -478,6 +553,8 @@ export class InputHandler {
         this.dragNote = null;
         this.currentPlayingKey = null;
         this.lastGlissandoKey = -1;
+        this.originalPositions = null;
+        this.originalWidths = null;
         
         this.canvas.style.cursor = 'crosshair';
         this.pianoRoll.dirty = true;
@@ -528,6 +605,7 @@ export class InputHandler {
                     this.pianoRoll.scrollY + delta));
         }
         
+        this.pianoRoll.emit('scroll', { scrollX: this.pianoRoll.scrollX, scrollY: this.pianoRoll.scrollY });
         this.pianoRoll.dirty = true;
     }
 

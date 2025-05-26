@@ -1,0 +1,211 @@
+import { PIANO_KEY_WIDTH, GRID_WIDTH, BEATS_PER_MEASURE, PAN_BAR_HEIGHT } from './constants.js';
+
+/**
+ * PanBar - Handles pan editing for notes
+ */
+export class PanBar {
+    constructor(canvas, pianoRoll) {
+        this.canvas = canvas;
+        this.ctx = canvas.getContext('2d');
+        this.pianoRoll = pianoRoll;
+        this.draggingNote = null;
+        this.hoveredNote = null;
+        this.scrollX = pianoRoll.scrollX || 0;
+        
+        this.resize();
+        this.setupEventListeners();
+        this.draw();
+    }
+    
+    resize() {
+        const container = this.canvas.parentElement;
+        this.canvas.width = container.clientWidth;
+        this.canvas.height = container.clientHeight;
+        this.draw();
+    }
+    
+    setupEventListeners() {
+        this.canvas.addEventListener('mousedown', this.handleMouseDown.bind(this));
+        this.canvas.addEventListener('mousemove', this.handleMouseMove.bind(this));
+        this.canvas.addEventListener('mouseup', this.handleMouseUp.bind(this));
+        this.canvas.addEventListener('mouseleave', this.handleMouseLeave.bind(this));
+        
+        // Listen for piano roll changes
+        this.pianoRoll.addEventListener('scroll', (data) => {
+            this.scrollX = data.scrollX;
+            this.draw();
+        });
+        this.pianoRoll.addEventListener('notesChanged', () => this.draw());
+        this.pianoRoll.addEventListener('selectionChanged', () => this.draw());
+        this.pianoRoll.addEventListener('playbackUpdate', () => this.draw());
+    }
+    
+    handleMouseDown(e) {
+        const rect = this.canvas.getBoundingClientRect();
+        const x = e.clientX - rect.left + this.scrollX;
+        const y = e.clientY - rect.top;
+        
+        // Find note at position
+        const note = this.findNoteAtX(x);
+        if (note) {
+            this.draggingNote = note;
+            this.updateNotePan(note, y);
+        }
+    }
+    
+    handleMouseMove(e) {
+        const rect = this.canvas.getBoundingClientRect();
+        const x = e.clientX - rect.left + this.scrollX;
+        const y = e.clientY - rect.top;
+        
+        if (this.draggingNote) {
+            this.updateNotePan(this.draggingNote, y);
+        } else {
+            const note = this.findNoteAtX(x);
+            if (note !== this.hoveredNote) {
+                this.hoveredNote = note;
+                this.canvas.style.cursor = note ? 'pointer' : 'default';
+                this.draw();
+            }
+        }
+    }
+    
+    handleMouseUp() {
+        this.draggingNote = null;
+    }
+    
+    handleMouseLeave() {
+        this.draggingNote = null;
+        this.hoveredNote = null;
+        this.canvas.style.cursor = 'default';
+        this.draw();
+    }
+    
+    findNoteAtX(x) {
+        const notes = this.pianoRoll.noteManager.notes;
+        for (const note of notes) {
+            const noteCenter = note.x + note.width / 2;
+            if (Math.abs(x - noteCenter) < 5) {
+                return note;
+            }
+        }
+        return null;
+    }
+    
+    updateNotePan(note, y) {
+        // Convert y position to pan value (-100 to 100)
+        const centerY = this.canvas.height / 2;
+        const pan = Math.max(-100, Math.min(100, ((centerY - y) / centerY) * 100));
+        note.pan = Math.round(pan);
+        this.pianoRoll.dirty = true;
+        this.draw();
+    }
+    
+    draw() {
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        
+        // Adjust for scroll
+        this.ctx.save();
+        this.ctx.translate(-this.scrollX, 0);
+        
+        // Draw playhead if playing or paused
+        if (this.pianoRoll.isPlaying || this.pianoRoll.isPaused) {
+            const currentMeasure = this.pianoRoll.currentMeasure;
+            const measureWidth = BEATS_PER_MEASURE * GRID_WIDTH;
+            const measureX = PIANO_KEY_WIDTH + currentMeasure * measureWidth;
+            
+            this.ctx.fillStyle = 'rgba(255, 68, 68, 0.1)';
+            this.ctx.fillRect(measureX, 0, measureWidth, this.canvas.height);
+        }
+        
+        // Draw center line
+        this.ctx.strokeStyle = '#444';
+        this.ctx.lineWidth = 1;
+        this.ctx.beginPath();
+        this.ctx.moveTo(0, this.canvas.height / 2);
+        this.ctx.lineTo(this.canvas.width + this.pianoRoll.scrollX, this.canvas.height / 2);
+        this.ctx.stroke();
+        
+        // Draw grid lines
+        this.ctx.strokeStyle = '#333';
+        this.ctx.lineWidth = 0.5;
+        const measureWidth = GRID_WIDTH * BEATS_PER_MEASURE;
+        for (let x = PIANO_KEY_WIDTH; x <= this.canvas.width + this.scrollX; x += measureWidth) {
+            this.ctx.beginPath();
+            this.ctx.moveTo(x, 0);
+            this.ctx.lineTo(x, this.canvas.height);
+            this.ctx.stroke();
+        }
+        
+        // Draw note pan handles
+        const notes = this.pianoRoll.noteManager.notes;
+        for (const note of notes) {
+            const x = note.x + note.width / 2;
+            const pan = note.pan || 0;
+            const y = this.canvas.height / 2 - (pan / 100) * (this.canvas.height / 2);
+            
+            // Draw handle
+            const isHovered = note === this.hoveredNote;
+            const isDragging = note === this.draggingNote;
+            const isSelected = this.pianoRoll.noteManager.selectedNotes.has(note);
+            
+            // Determine color based on state
+            let color = '#999';  // Lighter default color
+            if (isDragging) {
+                color = '#4a9eff';
+            } else if (isSelected) {
+                color = '#ffa500';
+            } else if (isHovered) {
+                color = '#bbb';
+            }
+            
+            // Draw handle with opaque background to prevent color mixing
+            const handleRadius = isSelected ? 5 : 4;
+            
+            // Draw a dark background circle first to block the playhead color
+            this.ctx.fillStyle = '#1a1a1a';
+            this.ctx.beginPath();
+            this.ctx.arc(x, y, handleRadius + 1, 0, Math.PI * 2);
+            this.ctx.fill();
+            
+            // Draw the handle with its proper color
+            this.ctx.fillStyle = color;
+            this.ctx.beginPath();
+            this.ctx.arc(x, y, handleRadius, 0, Math.PI * 2);
+            this.ctx.fill();
+            
+            // Add selection ring for selected notes
+            if (isSelected && !isDragging) {
+                this.ctx.strokeStyle = color;
+                this.ctx.lineWidth = 2;
+                this.ctx.beginPath();
+                this.ctx.arc(x, y, 7, 0, Math.PI * 2);
+                this.ctx.stroke();
+            }
+        }
+        
+        this.ctx.restore();
+        
+        // Draw label area background to match piano keys
+        this.ctx.save();
+        this.ctx.fillStyle = '#2a2a2a';
+        this.ctx.fillRect(0, 0, PIANO_KEY_WIDTH, this.canvas.height);
+        
+        // Draw border to match piano key area
+        this.ctx.strokeStyle = '#444';
+        this.ctx.lineWidth = 1;
+        this.ctx.beginPath();
+        this.ctx.moveTo(PIANO_KEY_WIDTH, 0);
+        this.ctx.lineTo(PIANO_KEY_WIDTH, this.canvas.height);
+        this.ctx.stroke();
+        
+        // Draw labels
+        this.ctx.fillStyle = '#888';
+        this.ctx.font = '10px Arial';
+        this.ctx.textAlign = 'center';
+        this.ctx.fillText('L', PIANO_KEY_WIDTH / 2, 15);
+        this.ctx.fillText('R', PIANO_KEY_WIDTH / 2, this.canvas.height - 5);
+        this.ctx.fillText('C', PIANO_KEY_WIDTH / 2, this.canvas.height / 2 + 3);
+        this.ctx.restore();
+    }
+}

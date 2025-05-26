@@ -1,18 +1,34 @@
 import { PianoRoll } from './PianoRoll.js';
 import { ModalManager } from './ModalManager.js';
 import { MenuManager } from './MenuManager.js';
+import { PanBar } from './PanBar.js';
+import { VelocityBar } from './VelocityBar.js';
 import { DEFAULT_VOLUME } from './constants.js';
 
 // Initialize managers
 const modalManager = new ModalManager();
 const menuManager = new MenuManager();
 let pianoRoll = null;
+let panBar = null;
+let velocityBar = null;
 
 // Initialize on DOM ready
 document.addEventListener('DOMContentLoaded', async () => {
     // Initialize piano roll
     const canvas = document.getElementById('pianoRoll');
     pianoRoll = new PianoRoll(canvas);
+    
+    // Initialize pan and velocity bars
+    const panCanvas = document.getElementById('panCanvas');
+    const velocityCanvas = document.getElementById('velocityCanvas');
+    
+    if (panCanvas) {
+        panBar = new PanBar(panCanvas, pianoRoll);
+    }
+    
+    if (velocityCanvas) {
+        velocityBar = new VelocityBar(velocityCanvas, pianoRoll);
+    }
     
     // Make pianoRoll globally accessible for debugging
     window.pianoRoll = pianoRoll;
@@ -257,6 +273,7 @@ async function handleNew() {
         pianoRoll.noteManager.clearAll();
         pianoRoll.stop();
         pianoRoll.dirty = true;
+        pianoRoll.emit('notesChanged');
         modalManager.notify('New project created', 'info');
     }
 }
@@ -372,7 +389,7 @@ Notes:
 function showAbout() {
     const about = `
 That 72edo Piano Roll
-Version 1.0
+Version 1.1
 
 A microtonal piano roll sequencer supporting 72 equal divisions of the octave.
 
@@ -381,7 +398,10 @@ Features:
 - Organya (.org) file import
 - Multi-track sequencing
 - Loop playback
-- 100 melodic instruments + 6 drum kits
+- 100 melodic instruments + 6 drum shots
+
+Sounds from Org Maker
+Sample music by Pixel
 
 Created with ❤️ for microtonal music exploration.`;
     

@@ -56,25 +56,25 @@ export const COLORS = {
     playhead: '#ff4444',
     text: '#888',
     loopMarker: '#ffaa00',
-    loopBackground: 'rgba(255, 170, 0, 0.1)'
+    loopBackground: 'rgba(255, 170, 0, 0.05)'
 };
 
 // Instrument color palette
 export const INSTRUMENT_COLOR_PALETTE = [
-    { note: '#ff6b6b', border: '#cc5555' }, // Red
-    { note: '#4ecdc4', border: '#3ba89f' }, // Teal
-    { note: '#ffe66d', border: '#ccb755' }, // Yellow
-    { note: '#a8e6cf', border: '#86b9a6' }, // Mint
-    { note: '#ff8b94', border: '#cc6f76' }, // Pink
-    { note: '#c7ceea', border: '#9fa5bb' }, // Lavender
-    { note: '#ffaaa5', border: '#cc8884' }, // Coral
-    { note: '#88d8b0', border: '#6dac8d' }, // Seafoam
-    { note: '#fdcb6e', border: '#caa258' }, // Orange
-    { note: '#74b9ff', border: '#5d94cc' }, // Sky blue
-    { note: '#a29bfe', border: '#827ccb' }, // Purple
-    { note: '#fab1a0', border: '#c88e80' }, // Peach
-    { note: '#55a3ff', border: '#4482cc' }, // Blue
-    { note: '#fd79a8', border: '#ca6186' }, // Rose
-    { note: '#6c5ce7', border: '#564ab9' }, // Violet
-    { note: '#00b894', border: '#009376' }  // Emerald
+    { note: '#ff5252', border: '#d32f2f' }, // Bright Red
+    { note: '#40e0d0', border: '#00acc1' }, // Bright Turquoise
+    { note: '#ffd740', border: '#f9a825' }, // Bright Yellow
+    { note: '#69f0ae', border: '#00c853' }, // Bright Mint
+    { note: '#ff4081', border: '#f50057' }, // Bright Pink
+    { note: '#b388ff', border: '#7c4dff' }, // Bright Lavender
+    { note: '#ff6e40', border: '#ff3d00' }, // Bright Coral
+    { note: '#64ffda', border: '#1de9b6' }, // Bright Seafoam
+    { note: '#ffab40', border: '#ff6f00' }, // Bright Orange
+    { note: '#40c4ff', border: '#0091ea' }, // Bright Sky blue
+    { note: '#e040fb', border: '#aa00ff' }, // Bright Purple
+    { note: '#ff8a80', border: '#ff5252' }, // Bright Peach
+    { note: '#448aff', border: '#2962ff' }, // Bright Blue
+    { note: '#ff80ab', border: '#ff4081' }, // Bright Rose
+    { note: '#7c4dff', border: '#651fff' }, // Bright Violet
+    { note: '#00e676', border: '#00c853' }  // Bright Emerald
 ];

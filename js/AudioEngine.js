@@ -158,7 +158,9 @@ export class AudioEngine {
                     // Handle melodic waves
                     const waveIndex = parseInt(sampleName.substring(5));
                     if (waveIndex <= 99) {
-                        // Create a looped buffer from the 256-sample wave
+                        // For now, just create the basic 256-sample buffer
+                        // The extended waveform with decay would need to be implemented
+                        // based on the oct_wave table and pipi flag
                         const audioBuffer = this.audioContext.createBuffer(
                             1, 256, this.audioContext.sampleRate
                         );
@@ -256,13 +258,27 @@ export class AudioEngine {
             source.loop = false;
             gain.gain.setValueAtTime(authenticVolume, startTime);
         } else {
-            source.loop = true;
+            // pipi affects looping behavior:
+            // pipi=0: loops the short waveform
+            // pipi=1: plays once with decay (simulating the extended waveform)
+            source.loop = !pipi;
             
             // Simple attack to prevent clicks
             gain.gain.setValueAtTime(0, startTime);
             gain.gain.linearRampToValueAtTime(authenticVolume, startTime + 0.002);
             
-            // Note: pipi only affects whether the waveform loops, not the envelope
+            if (pipi) {
+                // When pipi=1, simulate the decay that would be in the extended waveform
+                // In the original, the waveform is extended 4-32x with natural decay
+                // We'll simulate this with an envelope
+                const beatDuration = 60 / this.currentBPM;
+                
+                // Hold at full volume for one beat
+                gain.gain.setValueAtTime(authenticVolume, startTime + beatDuration);
+                
+                // Then decay to 40% over the next 2 beats (simulating the extended waveform decay)
+                gain.gain.exponentialRampToValueAtTime(authenticVolume * 0.4, startTime + beatDuration * 3);
+            }
         }
         
         // Start playback at scheduled time

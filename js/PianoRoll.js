@@ -412,6 +412,10 @@ export class PianoRoll {
             // Clear existing notes
             this.noteManager.clearAll();
             
+            // Clear instrument colors to ensure consistent assignment
+            this.instrumentColors.clear();
+            this.instrumentColorIndex = 0;
+            
             // Store org-specific timing info
             this.orgMsPerTick = converted.msPerTick;
             
@@ -454,6 +458,10 @@ export class PianoRoll {
             // Clear existing notes
             this.noteManager.clearAll();
             
+            // Clear instrument colors to ensure consistent assignment
+            this.instrumentColors.clear();
+            this.instrumentColorIndex = 0;
+            
             // Add converted notes
             converted.notes.forEach(noteData => {
                 this.noteManager.createNote(noteData);
@@ -474,6 +482,9 @@ export class PianoRoll {
             // Notify that notes have changed so pan/velocity bars update
             this.emit('notesChanged');
             
+            // Show track info
+            this.showMidiTrackInfo();
+            
             return true;
         } catch (error) {
             throw error;
@@ -484,6 +495,101 @@ export class PianoRoll {
     showOrgTrackInfo() {
         if (!this.orgTrackInfo) return;
         
+        // Build track info from notes
+        const trackData = this.buildTrackData();
+        this.showTrackInfoModal(trackData);
+    }
+    
+    showMidiTrackInfo() {
+        // Build track info from notes
+        const trackData = this.buildTrackData();
+        this.showTrackInfoModal(trackData);
+    }
+    
+    buildTrackData() {
+        const tracks = new Map();
+        
+        // Collect all notes by instrument
+        this.noteManager.notes.forEach(note => {
+            if (!tracks.has(note.instrument)) {
+                const color = this.getInstrumentColor(note.instrument);
+                tracks.set(note.instrument, {
+                    name: note.instrument,
+                    notes: [],
+                    color: color,
+                    visible: true,
+                    solo: false,
+                    muted: false
+                });
+            }
+            tracks.get(note.instrument).notes.push(note);
+        });
+        
+        // Convert to array and sort by name
+        return Array.from(tracks.values()).sort((a, b) => {
+            // Put numbered tracks first, then alphabetical
+            const aNum = parseInt(a.name.match(/\d+/)?.[0]);
+            const bNum = parseInt(b.name.match(/\d+/)?.[0]);
+            
+            if (!isNaN(aNum) && !isNaN(bNum)) {
+                return aNum - bNum;
+            } else if (!isNaN(aNum)) {
+                return -1;
+            } else if (!isNaN(bNum)) {
+                return 1;
+            }
+            
+            return a.name.localeCompare(b.name);
+        });
+    }
+    
+    showTrackInfoModal(trackData) {
+        const content = document.getElementById('trackInfoContent');
+        if (!content) return;
+        
+        content.innerHTML = '';
+        
+        if (trackData.length === 0) {
+            content.innerHTML = '<p style="text-align: center; color: #999;">No tracks found</p>';
+        } else {
+            trackData.forEach((track, index) => {
+                const trackEl = document.createElement('div');
+                trackEl.className = 'track-item';
+                trackEl.innerHTML = `
+                    <div class="track-color" style="background-color: ${track.color.note}; border-color: ${track.color.border}"></div>
+                    <div class="track-details">
+                        <div class="track-name">${track.name}</div>
+                        <div class="track-stats">${track.notes.length} notes</div>
+                    </div>
+                    <div class="track-controls">
+                        <button class="track-btn track-visibility ${track.visible ? 'active' : ''}" data-track="${track.name}" title="Toggle visibility">
+                            ${track.visible ? '👁' : '🚫'}
+                        </button>
+                    </div>
+                `;
+                content.appendChild(trackEl);
+            });
+            
+            // Add event listeners
+            content.querySelectorAll('.track-visibility').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const trackName = e.target.getAttribute('data-track');
+                    this.toggleTrackVisibility(trackName);
+                    e.target.classList.toggle('active');
+                    e.target.textContent = e.target.classList.contains('active') ? '👁' : '🚫';
+                });
+            });
+        }
+        
+        // Show modal using ModalManager
+        if (window.modalManager) {
+            window.modalManager.show('trackInfoModal');
+        }
+    }
+    
+    toggleTrackVisibility(trackName) {
+        // For now, just redraw - actual hiding will be implemented later
+        this.dirty = true;
     }
     
     exportToJSON() {

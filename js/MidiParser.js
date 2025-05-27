@@ -39,12 +39,7 @@ export class MidiParser {
             if (track.events.length > 0) {
                 const noteEvents = track.events.filter(e => e.type === 'noteOn' || e.type === 'noteOff');
                 if (noteEvents.length === 0) {
-                    console.log(`Track ${i}: ${track.events.length} events but no notes found`);
-                    const eventTypes = {};
-                    track.events.forEach(e => {
-                        eventTypes[e.type] = (eventTypes[e.type] || 0) + 1;
-                    });
-                    console.log(`  - Event types:`, eventTypes);
+                    // Track has no notes, only control events
                 }
             }
         }
@@ -153,7 +148,6 @@ export class MidiParser {
                 
                 // Debug first few events per track
                 if (event.type === 'noteOn' && events.filter(e => e.type === 'noteOn').length <= 5) {
-                    console.log(`Track ${Math.floor((offset-8)/8)} parsing: Found ${event.type} at time ${event.time}, ch=${event.channel}, note=${event.note}, status=0x${statusByte.toString(16)}`);
                 }
             } else {
                 trackOffset++;
@@ -426,7 +420,6 @@ export class MidiParser {
         // Use the first tempo if available
         if (tempoChanges.length > 0) {
             tempo = tempoChanges[0].tempo;
-            console.log(`Found ${tempoChanges.length} tempo change(s), using initial tempo: ${tempo} BPM`);
         } else {
             console.warn('No tempo found in MIDI file, using default 120 BPM');
         }
@@ -437,7 +430,6 @@ export class MidiParser {
                 numerator: timeSignatures[0].numerator,
                 denominator: timeSignatures[0].denominator
             };
-            console.log(`Found time signature: ${timeSignature.numerator}/${timeSignature.denominator}`);
         }
         
         // Find the actual time range of the MIDI file
@@ -451,7 +443,6 @@ export class MidiParser {
         const ticksPerMeasure = ticksPerBeat * beatsPerMeasure;
         let measuresNeeded = Math.ceil(timeRange / ticksPerMeasure);
         
-        console.log(`Ticks per beat: ${ticksPerBeat}, Beats per measure: ${beatsPerMeasure}, Ticks per measure: ${ticksPerMeasure}`);
         
         // Sanity check for measures
         if (measuresNeeded === 0 || !isFinite(measuresNeeded)) {
@@ -479,16 +470,12 @@ export class MidiParser {
             console.warn(`Very large time range detected: ${timeRange} ticks`);
         }
         
-        console.log(`MIDI Format: ${midiData.format}, Tracks: ${midiData.tracks.length}`);
-        console.log(`Tempo: ${tempo}, TicksPerQuarter: ${midiData.ticksPerQuarter}, TimeRange: ${minTime}-${maxTime}, PixelsPerTick: ${pixelsPerTick}`);
         
         // Debug: Show what tracks contain notes
         midiData.tracks.forEach((track, i) => {
             const noteEvents = track.events.filter(e => e.type === 'noteOn');
             if (noteEvents.length > 0) {
-                console.log(`Track ${i} has ${noteEvents.length} note-on events, first at time ${noteEvents[0].time}`);
             } else {
-                console.log(`Track ${i} has no note events`);
             }
         });
         
@@ -512,7 +499,6 @@ export class MidiParser {
                 // Track program changes per channel
                 channelPrograms.set(event.channel, event.program);
                 const pan = this.getOrchestralPan(event.program);
-                console.log(`Program change: Channel ${event.channel} → Program ${event.program} (${this.getMidiInstrumentName(event.program)}) → Pan ${pan}`);
             } else if (event.type === 'noteOn') {
                 // Store note start with track info
                 const key = `${event.trackIndex}-${event.channel}-${event.note}`;
@@ -608,7 +594,6 @@ export class MidiParser {
                         
                         // Log first few notes for debugging
                         if (notes.length < 10) {
-                            console.log(`Note ${notes.length}: Track=${noteStart.trackIndex}, Ch=${noteStart.channel}, MIDI=${noteStart.midiNote}, Vel=${noteStart.velocity}→${velocity}, Pan=${pan}, Inst=${instrument}, Time=${noteStart.startTime}→${event.time}`);
                         }
                         
                         notes.push({
@@ -701,26 +686,15 @@ export class MidiParser {
                 }
             });
             
-            console.log(`MIDI Import Summary:`);
-            console.log(`- Total notes: ${notes.length} created from ${totalNotes} note-on events`);
-            console.log(`- Notes per track/channel:`, notesByTrack);
-            console.log(`- Channels used:`, Array.from(channelsUsed).sort((a, b) => a - b));
             
             // Show instrument assignments
-            console.log(`- Instrument assignments:`);
             trackChannelInstruments.forEach((instrument, key) => {
-                console.log(`  Track/Channel ${key} → ${instrument}`);
             });
             
             // Show program and pan assignments
-            console.log(`- Program/Pan assignments:`);
             channelPrograms.forEach((program, channel) => {
                 const pan = this.getOrchestralPan(program);
-                console.log(`  Channel ${channel} → Program ${program} (${this.getMidiInstrumentName(program)}) → Pan ${pan}`);
             });
-            console.log(`- Tempo: ${tempo} BPM`);
-            console.log(`- Time range: ${minTime}-${maxTime} ticks (first note at ${minTime})`);
-            console.log(`- Measures: ${this.calculateMeasures(notes)}`);
         }
         
         return {

@@ -7,6 +7,7 @@ import { DEFAULT_VOLUME } from './constants.js';
 
 // Initialize managers
 const modalManager = new ModalManager();
+window.modalManager = modalManager; // Make it globally accessible
 const menuManager = new MenuManager();
 let pianoRoll = null;
 let panBar = null;
@@ -151,6 +152,7 @@ function setupModals() {
     });
     modalManager.register('confirmModal');
     modalManager.register('saveAsModal');
+    modalManager.register('trackInfoModal');
 }
 
 /**
@@ -244,6 +246,13 @@ function setupMenus() {
                 checked: true,
                 handler: (checked) => {
                     pianoRoll.followMode = checked;
+                }
+            },
+            {
+                id: 'menu-track-info',
+                handler: () => {
+                    const trackData = pianoRoll.buildTrackData();
+                    pianoRoll.showTrackInfoModal(trackData);
                 }
             }
         ],

@@ -751,9 +751,25 @@ export class InputHandler {
             // Store touch identifier for tracking
             this.currentTouchId = touch.identifier;
             
-            this.handleLeftClick(x, y, e);
+            // Don't create notes if we're starting a multi-touch gesture
+            // Wait a brief moment to see if a second finger is added
+            this.touchStartTimeout = setTimeout(() => {
+                // Only proceed if still single touch
+                if (e.touches.length === 1) {
+                    this.handleLeftClick(x, y, e);
+                }
+            }, 50); // 50ms delay to detect multi-touch
         } else if (e.touches.length === 2) {
             // Two finger touch - prepare for pinch/zoom or pan
+            // Clear any pending single touch action
+            if (this.touchStartTimeout) {
+                clearTimeout(this.touchStartTimeout);
+                this.touchStartTimeout = null;
+            }
+            
+            // Cancel any ongoing interactions
+            this.cancelCurrentInteraction();
+            
             this.handleMultiTouchStart(e);
         }
     }
@@ -763,6 +779,12 @@ export class InputHandler {
      */
     onTouchMove(e) {
         e.preventDefault();
+        
+        // Clear any pending touch start timeout if still waiting
+        if (this.touchStartTimeout) {
+            clearTimeout(this.touchStartTimeout);
+            this.touchStartTimeout = null;
+        }
         
         if (e.touches.length === 1 && this.currentTouchId !== undefined) {
             // Find the touch we're tracking
@@ -788,6 +810,12 @@ export class InputHandler {
             }
         } else if (e.touches.length === 2) {
             // Two finger touch - handle pinch/zoom or pan
+            // If we were in the middle of a single-touch interaction, cancel it
+            if (this.currentTouchId !== undefined) {
+                this.cancelCurrentInteraction();
+                this.currentTouchId = undefined;
+            }
+            
             this.handleMultiTouchMove(e);
         }
     }
@@ -797,6 +825,12 @@ export class InputHandler {
      */
     onTouchEnd(e) {
         e.preventDefault();
+        
+        // Clear any pending touch start timeout
+        if (this.touchStartTimeout) {
+            clearTimeout(this.touchStartTimeout);
+            this.touchStartTimeout = null;
+        }
         
         // Check if our tracked touch ended
         let touchEnded = true;
@@ -818,6 +852,30 @@ export class InputHandler {
             this.multiTouchStartDistance = null;
             this.multiTouchStartScrollX = null;
             this.multiTouchStartScrollY = null;
+        }
+    }
+    
+    /**
+     * Cancel current interaction
+     */
+    cancelCurrentInteraction() {
+        // Cancel any ongoing drag, resize, or note creation
+        if (this.isDragging || this.isResizing || this.isCreatingNote) {
+            // If we were creating a note, remove it
+            if (this.isCreatingNote && this.dragNote) {
+                this.pianoRoll.noteManager.deleteNote(this.dragNote);
+            }
+            
+            // Reset all interaction states
+            this.isDragging = false;
+            this.isResizing = false;
+            this.isCreatingNote = false;
+            this.isSelecting = false;
+            this.isDeleteSelecting = false;
+            this.dragNote = null;
+            this.selectionBox = null;
+            
+            this.pianoRoll.dirty = true;
         }
     }
     

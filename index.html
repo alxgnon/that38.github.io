@@ -88,6 +88,16 @@
                 <div class="menu-option" id="menu-about">About</div>
             </div>
         </div>
+        
+        <div class="menu-spacer"></div>
+        
+        <div class="menu-instrument-selector">
+            <label>Instrument:</label>
+            <select id="waveformSelect">
+                <!-- Options will be populated dynamically -->
+            </select>
+            <span id="instrumentColorIndicator"></span>
+        </div>
     </div>
     
     <div id="container">
@@ -108,20 +118,10 @@
                 </button>
             </div>
             
-            <div class="control-section">
-                <div class="control-group volume-group">
-                    <label>
-                        Volume: <input type="range" id="volumeSlider" min="0" max="100" step="1" value="30">
-                    </label>
-                </div>
-                
-                <div class="control-group instrument-group">
-                    <label>Instrument:</label>
-                    <select id="waveformSelect">
-                        <!-- Options will be populated dynamically -->
-                    </select>
-                    <span id="instrumentColorIndicator"></span>
-                </div>
+            <div class="control-group volume-group">
+                <label>
+                    Volume: <input type="range" id="volumeSlider" min="0" max="100" step="1" value="30">
+                </label>
             </div>
             
             <div class="control-spacer"></div>

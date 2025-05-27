@@ -89,8 +89,13 @@ export class MidiParser {
             let statusByte = view.getUint8(trackOffset);
             let dataOffset = trackOffset + 1;
             
-            // Handle running status
+            // Handle running status (only valid within the same track)
             if (statusByte < 0x80) {
+                if (!runningStatus) {
+                    // Invalid MIDI data - skip this byte
+                    trackOffset++;
+                    continue;
+                }
                 statusByte = runningStatus;
                 dataOffset = trackOffset;
             } else {
@@ -332,26 +337,40 @@ export class MidiParser {
         const basePixelsPerTick = this.calculatePixelsPerTick(tempo, midiData.ticksPerQuarter);
         const pixelsPerTick = basePixelsPerTick * scaleFactor;
         
+        console.log(`MIDI Format: ${midiData.format}, Tracks: ${midiData.tracks.length}`);
         console.log(`Tempo: ${tempo}, TicksPerQuarter: ${midiData.ticksPerQuarter}, TimeRange: ${minTime}-${maxTime}, PixelsPerTick: ${pixelsPerTick}`);
         
-        // Process all tracks
+        // For Format 1 MIDI files, track 0 often contains only tempo/time signature
+        // so we need to merge all tracks' events and sort by time
+        const allEvents = [];
+        
+        // Collect all events from all tracks
         midiData.tracks.forEach((track, trackIndex) => {
-            // Process note events
             track.events.forEach(event => {
-                if (event.type === 'noteOn') {
-                    // Store note start
-                    const key = `${event.channel}-${event.note}`;
-                    activeNotes.set(key, {
-                        startTime: event.time,
-                        velocity: event.velocity,
-                        channel: event.channel,
-                        midiNote: event.note
-                    });
-                } else if (event.type === 'noteOff') {
-                    // Complete the note
-                    const key = `${event.channel}-${event.note}`;
-                    const noteStart = activeNotes.get(key);
-                    if (noteStart) {
+                allEvents.push({ ...event, trackIndex });
+            });
+        });
+        
+        // Sort all events by time to process them in chronological order
+        allEvents.sort((a, b) => a.time - b.time);
+        
+        // Process all events in time order
+        allEvents.forEach(event => {
+            if (event.type === 'noteOn') {
+                // Store note start with track info
+                const key = `${event.trackIndex}-${event.channel}-${event.note}`;
+                activeNotes.set(key, {
+                    startTime: event.time,
+                    velocity: event.velocity,
+                    channel: event.channel,
+                    midiNote: event.note,
+                    trackIndex: event.trackIndex
+                });
+            } else if (event.type === 'noteOff') {
+                // Complete the note - match by track, channel, and note
+                const key = `${event.trackIndex}-${event.channel}-${event.note}`;
+                const noteStart = activeNotes.get(key);
+                if (noteStart) {
                         const duration = event.time - noteStart.startTime;
                         
                         // Convert MIDI note to 72-EDO with optional octave shift
@@ -417,7 +436,6 @@ export class MidiParser {
                         denominator: event.denominator
                     };
                 }
-            });
         });
         
         return {

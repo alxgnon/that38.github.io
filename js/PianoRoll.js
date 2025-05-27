@@ -483,6 +483,7 @@ export class PianoRoll {
                     velocity: note.velocity,
                     pan: note.pan,
                     instrument: note.instrument,
+                    pipi: note.pipi || 0,
                     volumeAutomation: note.volumeAutomation || null,
                     panAutomation: note.panAutomation || null
                 };
@@ -541,6 +542,7 @@ export class PianoRoll {
                             velocity: noteData.velocity || DEFAULT_VELOCITY,
                             pan: noteData.pan || 0,
                             instrument: noteData.instrument || 'M00',
+                            pipi: noteData.pipi || 0,
                             volumeAutomation: noteData.volumeAutomation || null,
                             panAutomation: noteData.panAutomation || null
                         });

@@ -245,10 +245,8 @@ export class AudioEngine {
                 }
                 // Remove from active notes but let it play out
                 this.activeNotes.delete(keyNumber);
-            } else {
-                // Drums stop immediately
-                this.stopNote(keyNumber);
             }
+            // Drums are NOT stopped - they always play out fully in Organya
         }
         
         const buffer = await this.loadSample(sampleName);
@@ -378,9 +376,11 @@ export class AudioEngine {
             return { source, gain, panner, isDrum, keyNumber, stopTime };
         }
         
-        // Store reference for manual stopping
+        // Store reference for manual stopping (only melodic instruments)
         const noteData = { source, gain, panner, isDrum };
-        this.activeNotes.set(keyNumber, noteData);
+        if (!isDrum) {
+            this.activeNotes.set(keyNumber, noteData);
+        }
         
         // Track for glissando if from piano keys
         if (isGlissando) {
@@ -424,17 +424,36 @@ export class AudioEngine {
             const drumFreq = clampedKey * 800 + 100;
             return drumFreq / BASE_SAMPLE_RATE;
         } else {
-            // Apply frequency adjustment using Organya's pitch system
-            // The document shows pitch affects sampling rate linearly
-            // But in practice, small adjustments work best
-            const PITCH_ADJUST_SCALE = 0.05; // 5% strength gave good results
-            const pitchValue = freqAdjust + 1000;
-            const pitchMultiplier = 1.0 + (pitchValue - 1000) / 1000 * PITCH_ADJUST_SCALE;
+            // Organya pitch system implementation
+            // Base point frequencies for each pitch class (C through B)
+            const basePointFreqs = [33408, 35584, 37632, 39808, 42112, 44672, 47488, 50048, 52992, 56320, 59648, 63232];
             
-            const freq = this.getFrequency(keyNumber);
-            const baseKey = 4 * NOTES_PER_OCTAVE;
-            const baseFreq = this.getFrequency(baseKey);
-            return (freq / baseFreq) * 2 * Math.sqrt(2) * pitchMultiplier;
+            // Period sizes for each octave
+            const periodSizes = [1024, 512, 256, 128, 64, 32, 16, 8];
+            
+            // Extract octave and pitch class from key number
+            const octave = Math.floor(keyNumber / NOTES_PER_OCTAVE);
+            const microtonalPosition = keyNumber % NOTES_PER_OCTAVE;
+            // Round to nearest semitone (6 microtones per semitone in 72-EDO)
+            const pitchClassIndex = Math.round(microtonalPosition / 6) % 12;
+            
+            // Clamp values to valid ranges
+            const clampedOctave = Math.max(0, Math.min(7, octave));
+            const clampedPitchClass = Math.max(0, Math.min(11, pitchClassIndex));
+            
+            // Calculate point frequency with freq adjustment
+            // freqAdjust is already (pitch - 1000) from OrgParser
+            const pointFrequency = basePointFreqs[clampedPitchClass] + freqAdjust;
+            
+            // Calculate actual frequency using period size
+            const organyaFreq = pointFrequency / periodSizes[clampedOctave];
+            
+            // The wavetable samples are 256 samples at the base sample rate
+            // We need to calculate the playback rate to achieve the target frequency
+            // organyaFreq is in Hz (periods per second)
+            // For a 256-sample waveform, one period at playback rate 1.0 takes 256/sampleRate seconds
+            // To get organyaFreq Hz, we need: playbackRate = organyaFreq * 256 / sampleRate
+            return (organyaFreq * 256) / this.audioContext.sampleRate;
         }
     }
 

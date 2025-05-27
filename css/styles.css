@@ -977,6 +977,31 @@ select:hover {
         display: none;
     }
     
+    /* Make voice selector more compact on mobile */
+    .menu-instrument-selector {
+        padding: 0 4px;
+        height: 32px;
+        align-items: center;
+    }
+    
+    .menu-instrument-selector label {
+        font-size: 11px;
+        margin-right: 4px;
+    }
+    
+    .menu-instrument-selector select {
+        height: 24px;
+        padding: 2px 4px;
+        font-size: 11px;
+        min-width: 80px;
+    }
+    
+    .menu-instrument-selector #instrumentColorIndicator {
+        width: 8px;
+        height: 8px;
+        margin-left: 4px;
+    }
+    
     /* Make controls more compact on mobile */
     #controls {
         flex-wrap: nowrap;

@@ -17,6 +17,7 @@ import { NoteManager } from './NoteManager.js';
 import { InputHandler } from './InputHandler.js';
 import { Renderer } from './Renderer.js';
 import { OrgParser } from './OrgParser.js';
+import { MidiParser } from './MidiParser.js';
 
 /**
  * Main PianoRoll class - coordinates all components
@@ -445,7 +446,40 @@ export class PianoRoll {
         }
     }
     
-    // Serialization methods
+    async loadMidiFile(arrayBuffer) {
+        try {
+            const midiData = MidiParser.parse(arrayBuffer);
+            const converted = MidiParser.convertToNotes(midiData, arrayBuffer);
+            
+            // Clear existing notes
+            this.noteManager.clearAll();
+            
+            // Add converted notes
+            converted.notes.forEach(noteData => {
+                this.noteManager.createNote(noteData);
+            });
+            
+            // Set tempo and loop
+            this.setTempo(converted.tempo);
+            this.setLoop(converted.loopEnabled, converted.loopStart, converted.loopEnd);
+            
+            // Update UI
+            document.getElementById('loopBtn').classList.toggle('active', converted.loopEnabled);
+            document.getElementById('loopStartInput').value = converted.loopStart + 1;
+            document.getElementById('loopEndInput').value = converted.loopEnd + 1;
+            
+            this.dirty = true;
+            this.renderer.markFullRedraw();
+            
+            // Notify that notes have changed so pan/velocity bars update
+            this.emit('notesChanged');
+            
+            return true;
+        } catch (error) {
+            throw error;
+        }
+    }
+    
     // Show org track info in console or modal
     showOrgTrackInfo() {
         if (!this.orgTrackInfo) return;

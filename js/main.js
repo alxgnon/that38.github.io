@@ -67,8 +67,20 @@ function setupControls() {
     // Volume slider
     const volumeSlider = document.getElementById('volumeSlider');
     volumeSlider.value = DEFAULT_VOLUME;
+    
+    // Create a style for the volume slider fill
+    const updateVolumeSliderFill = () => {
+        const value = volumeSlider.value;
+        const percentage = value;
+        volumeSlider.style.background = `linear-gradient(to right, #ff8800 0%, #ff8800 ${percentage}%, #444 ${percentage}%, #444 100%)`;
+    };
+    
+    // Initialize the fill
+    updateVolumeSliderFill();
+    
     volumeSlider.addEventListener('input', (e) => {
         pianoRoll.audioEngine.setMasterVolume(parseInt(e.target.value));
+        updateVolumeSliderFill();
     });
     
     // Instrument selector
@@ -172,6 +184,10 @@ function setupMenus() {
                 handler: () => handleImportOrg()
             },
             {
+                id: 'menu-import-midi',
+                handler: () => handleImportMidi()
+            },
+            {
                 id: 'menu-clear-all',
                 handler: () => handleClearAll()
             }
@@ -259,10 +275,11 @@ function setupMenus() {
  * Setup sample song menu items
  */
 function setupSongMenuItems() {
-    // Direct song links
-    const songLinks = document.querySelectorAll('[data-org]');
-    songLinks.forEach(link => {
+    // Direct ORG song links (exclude items with submenus)
+    const orgLinks = document.querySelectorAll('[data-org]:not(.has-submenu)');
+    orgLinks.forEach(link => {
         link.addEventListener('click', async (e) => {
+            e.stopPropagation();
             const orgPath = e.target.getAttribute('data-org');
             
             // Check if it's a directory
@@ -273,6 +290,20 @@ function setupSongMenuItems() {
             }
             
             menuManager.closeAll();
+        });
+    });
+    
+    // Direct MIDI song links
+    const midiLinks = document.querySelectorAll('[data-midi]');
+    midiLinks.forEach(link => {
+        link.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            const midiPath = e.target.getAttribute('data-midi');
+            if (midiPath) {
+                await loadMidiFromPath(midiPath);
+                menuManager.closeAll();
+            }
         });
     });
 }
@@ -309,6 +340,27 @@ async function handleImportOrg() {
                 modalManager.notify(`Loaded: ${file.name}`, 'info');
             } catch (error) {
                 modalManager.notify(`Failed to load file: ${error.message}`, 'error');
+            }
+        }
+    };
+    
+    input.click();
+}
+
+async function handleImportMidi() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.mid,.midi';
+    
+    input.onchange = async (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            try {
+                const buffer = await file.arrayBuffer();
+                await pianoRoll.loadMidiFile(buffer);
+                modalManager.notify(`Loaded: ${file.name}`, 'info');
+            } catch (error) {
+                modalManager.notify(`Failed to load MIDI file: ${error.message}`, 'error');
             }
         }
     };
@@ -634,6 +686,25 @@ async function loadOrgFromPath(path) {
         modalManager.notify(`Loaded: ${filename}`, 'info');
     } catch (error) {
         modalManager.notify(`Failed to load file: ${error.message}`, 'error');
+    }
+}
+
+/**
+ * Load MIDI file from path
+ */
+async function loadMidiFromPath(path) {
+    try {
+        const response = await fetch(path);
+        if (!response.ok) throw new Error('File not found');
+        
+        const buffer = await response.arrayBuffer();
+        await pianoRoll.loadMidiFile(buffer);
+        
+        const filename = path.split('/').pop();
+        currentFilename = null;  // Reset filename when loading MIDI files
+        modalManager.notify(`Loaded: ${filename}`, 'info');
+    } catch (error) {
+        modalManager.notify(`Failed to load MIDI file: ${error.message}`, 'error');
     }
 }
 

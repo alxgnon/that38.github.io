@@ -30,6 +30,17 @@ export class PanBar {
         this.canvas.addEventListener('mouseup', this.handleMouseUp.bind(this));
         this.canvas.addEventListener('mouseleave', this.handleMouseLeave.bind(this));
         
+        // Touch events
+        this.canvas.addEventListener('touchstart', this.handleTouchStart.bind(this), { passive: false });
+        this.canvas.addEventListener('touchmove', this.handleTouchMove.bind(this), { passive: false });
+        this.canvas.addEventListener('touchend', this.handleTouchEnd.bind(this), { passive: false });
+        this.canvas.addEventListener('touchcancel', this.handleTouchEnd.bind(this), { passive: false });
+        
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            this.resize();
+        });
+        
         // Listen for piano roll changes
         this.pianoRoll.addEventListener('scroll', (data) => {
             this.scrollX = data.scrollX;
@@ -267,5 +278,67 @@ export class PanBar {
             (G < 255 ? G < 1 ? 0 : G : 255) * 0x100 +
             (B < 255 ? B < 1 ? 0 : B : 255))
             .toString(16).slice(1);
+    }
+    
+    /**
+     * Handle touch start
+     */
+    handleTouchStart(e) {
+        e.preventDefault();
+        if (e.touches.length === 1) {
+            const touch = e.touches[0];
+            const rect = this.canvas.getBoundingClientRect();
+            const x = touch.clientX - rect.left + this.scrollX;
+            const y = touch.clientY - rect.top;
+            
+            // Store touch identifier
+            this.currentTouchId = touch.identifier;
+            
+            // Simulate mouse down
+            this.handleMouseDown({ clientX: touch.clientX, clientY: touch.clientY });
+        }
+    }
+    
+    /**
+     * Handle touch move
+     */
+    handleTouchMove(e) {
+        e.preventDefault();
+        if (e.touches.length === 1 && this.currentTouchId !== undefined) {
+            // Find the touch we're tracking
+            let touch = null;
+            for (let i = 0; i < e.touches.length; i++) {
+                if (e.touches[i].identifier === this.currentTouchId) {
+                    touch = e.touches[i];
+                    break;
+                }
+            }
+            
+            if (touch) {
+                // Simulate mouse move
+                this.handleMouseMove({ clientX: touch.clientX, clientY: touch.clientY });
+            }
+        }
+    }
+    
+    /**
+     * Handle touch end
+     */
+    handleTouchEnd(e) {
+        e.preventDefault();
+        
+        // Check if our tracked touch ended
+        let touchEnded = true;
+        for (let i = 0; i < e.touches.length; i++) {
+            if (e.touches[i].identifier === this.currentTouchId) {
+                touchEnded = false;
+                break;
+            }
+        }
+        
+        if (touchEnded) {
+            this.handleMouseUp();
+            this.currentTouchId = undefined;
+        }
     }
 }

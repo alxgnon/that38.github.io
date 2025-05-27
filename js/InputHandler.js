@@ -50,6 +50,12 @@ export class InputHandler {
         this.canvas.addEventListener('contextmenu', (e) => e.preventDefault());
         this.canvas.addEventListener('wheel', (e) => this.onWheel(e));
         
+        // Touch events
+        this.canvas.addEventListener('touchstart', (e) => this.onTouchStart(e), { passive: false });
+        this.canvas.addEventListener('touchmove', (e) => this.onTouchMove(e), { passive: false });
+        this.canvas.addEventListener('touchend', (e) => this.onTouchEnd(e), { passive: false });
+        this.canvas.addEventListener('touchcancel', (e) => this.onTouchEnd(e), { passive: false });
+        
         // Global mouse up to catch releases outside canvas
         window.addEventListener('mouseup', (e) => this.onMouseUp(e));
         
@@ -239,12 +245,10 @@ export class InputHandler {
         this.resizeDirection = direction;
         this.dragStartX = this.mouseX; // Store the actual mouse position
         
-        if (direction === 'right') {
-            this.originalNoteWidth = note.width;
-        } else {
-            this.originalNoteX = note.x;
-            this.originalNoteEnd = note.x + note.width;
-        }
+        // Store original dimensions for the dragged note
+        this.originalNoteX = note.x;
+        this.originalNoteWidth = note.width;
+        this.originalNoteEnd = note.x + note.width;
         
         // Store original widths and positions for all selected notes
         if (isNoteSelected || this.pianoRoll.noteManager.selectedNotes.has(note)) {
@@ -366,29 +370,43 @@ export class InputHandler {
     handleResize(x, y) {
         if (!this.dragNote) return;
         
-        // Snap x to grid if grid snap is enabled
-        if (this.pianoRoll.gridSnap) {
-            const subdivisionWidth = GRID_WIDTH / GRID_SUBDIVISIONS;
-            x = Math.round(x / subdivisionWidth) * subdivisionWidth;
-        }
-        
-        const deltaX = x - this.dragStartX;
+        const subdivisionWidth = GRID_WIDTH / GRID_SUBDIVISIONS;
+        const minWidth = subdivisionWidth;
         
         if (this.pianoRoll.noteManager.selectedNotes.has(this.dragNote)) {
+            // Calculate raw delta
+            const rawDelta = x - this.dragStartX;
+            
             // Resize all selected notes
-            this.pianoRoll.noteManager.resizeSelectedNotes(deltaX, this.resizeDirection, this.originalWidths, this.originalPositions);
+            this.pianoRoll.noteManager.resizeSelectedNotes(rawDelta, this.resizeDirection, this.originalWidths, this.originalPositions);
         } else {
             // Resize single note
-            const minWidth = GRID_WIDTH / GRID_SUBDIVISIONS;
-            
             if (this.resizeDirection === 'right') {
-                // Right edge resize - calculate new width based on original width + delta
-                const newWidth = this.originalNoteWidth + deltaX;
+                // Calculate new right edge position
+                let newRightEdge = this.originalNoteX + this.originalNoteWidth + (x - this.dragStartX);
+                
+                // Snap to grid if enabled
+                if (this.pianoRoll.gridSnap) {
+                    newRightEdge = Math.round((newRightEdge - PIANO_KEY_WIDTH) / subdivisionWidth) * 
+                                   subdivisionWidth + PIANO_KEY_WIDTH;
+                }
+                
+                // Calculate new width
+                const newWidth = newRightEdge - this.dragNote.x;
                 this.dragNote.width = Math.max(minWidth, newWidth);
             } else {
-                // Left edge resize - move left edge while keeping right edge fixed
-                const newX = this.originalNoteX + deltaX;
-                const newWidth = this.originalNoteEnd - newX;
+                // Calculate new left edge position
+                let newX = this.originalNoteX + (x - this.dragStartX);
+                
+                // Snap to grid if enabled
+                if (this.pianoRoll.gridSnap) {
+                    newX = Math.round((newX - PIANO_KEY_WIDTH) / subdivisionWidth) * 
+                           subdivisionWidth + PIANO_KEY_WIDTH;
+                }
+                
+                // Keep right edge fixed
+                const rightEdge = this.originalNoteX + this.originalNoteWidth;
+                const newWidth = rightEdge - newX;
                 
                 if (newWidth >= minWidth && newX >= PIANO_KEY_WIDTH) {
                     this.dragNote.x = newX;
@@ -704,5 +722,157 @@ export class InputHandler {
         
         this.pianoRoll.emit('notesChanged');
         this.pianoRoll.dirty = true;
+    }
+    
+    /**
+     * Get touch coordinates relative to canvas
+     */
+    getTouchCoordinates(touch) {
+        const rect = this.canvas.getBoundingClientRect();
+        return {
+            x: touch.clientX - rect.left + this.pianoRoll.scrollX,
+            y: touch.clientY - rect.top + this.pianoRoll.scrollY
+        };
+    }
+    
+    /**
+     * Handle touch start
+     */
+    onTouchStart(e) {
+        e.preventDefault();
+        
+        if (e.touches.length === 1) {
+            // Single touch - simulate mouse down
+            const touch = e.touches[0];
+            const { x, y } = this.getTouchCoordinates(touch);
+            this.mouseX = x;
+            this.mouseY = y;
+            
+            // Store touch identifier for tracking
+            this.currentTouchId = touch.identifier;
+            
+            this.handleLeftClick(x, y, e);
+        } else if (e.touches.length === 2) {
+            // Two finger touch - prepare for pinch/zoom or pan
+            this.handleMultiTouchStart(e);
+        }
+    }
+    
+    /**
+     * Handle touch move
+     */
+    onTouchMove(e) {
+        e.preventDefault();
+        
+        if (e.touches.length === 1 && this.currentTouchId !== undefined) {
+            // Find the touch we're tracking
+            let touch = null;
+            for (let i = 0; i < e.touches.length; i++) {
+                if (e.touches[i].identifier === this.currentTouchId) {
+                    touch = e.touches[i];
+                    break;
+                }
+            }
+            
+            if (touch) {
+                const { x, y } = this.getTouchCoordinates(touch);
+                this.mouseX = x;
+                this.mouseY = y;
+                
+                // Simulate mouse move
+                this.onMouseMove({ 
+                    clientX: touch.clientX, 
+                    clientY: touch.clientY,
+                    preventDefault: () => {}
+                });
+            }
+        } else if (e.touches.length === 2) {
+            // Two finger touch - handle pinch/zoom or pan
+            this.handleMultiTouchMove(e);
+        }
+    }
+    
+    /**
+     * Handle touch end
+     */
+    onTouchEnd(e) {
+        e.preventDefault();
+        
+        // Check if our tracked touch ended
+        let touchEnded = true;
+        for (let i = 0; i < e.touches.length; i++) {
+            if (e.touches[i].identifier === this.currentTouchId) {
+                touchEnded = false;
+                break;
+            }
+        }
+        
+        if (touchEnded) {
+            // Simulate mouse up
+            this.onMouseUp(e);
+            this.currentTouchId = undefined;
+        }
+        
+        // Reset multi-touch state if needed
+        if (e.touches.length < 2) {
+            this.multiTouchStartDistance = null;
+            this.multiTouchStartScrollX = null;
+            this.multiTouchStartScrollY = null;
+        }
+    }
+    
+    /**
+     * Handle multi-touch start (for pan/zoom)
+     */
+    handleMultiTouchStart(e) {
+        if (e.touches.length === 2) {
+            const touch1 = e.touches[0];
+            const touch2 = e.touches[1];
+            
+            // Calculate initial distance between touches for pinch zoom
+            const dx = touch2.clientX - touch1.clientX;
+            const dy = touch2.clientY - touch1.clientY;
+            this.multiTouchStartDistance = Math.sqrt(dx * dx + dy * dy);
+            
+            // Store initial scroll position for panning
+            this.multiTouchStartScrollX = this.pianoRoll.scrollX;
+            this.multiTouchStartScrollY = this.pianoRoll.scrollY;
+            
+            // Calculate center point
+            this.multiTouchCenterX = (touch1.clientX + touch2.clientX) / 2;
+            this.multiTouchCenterY = (touch1.clientY + touch2.clientY) / 2;
+        }
+    }
+    
+    /**
+     * Handle multi-touch move (for pan/zoom)
+     */
+    handleMultiTouchMove(e) {
+        if (e.touches.length === 2 && this.multiTouchStartDistance) {
+            const touch1 = e.touches[0];
+            const touch2 = e.touches[1];
+            
+            // Calculate new center point
+            const newCenterX = (touch1.clientX + touch2.clientX) / 2;
+            const newCenterY = (touch1.clientY + touch2.clientY) / 2;
+            
+            // Calculate pan delta
+            const panDeltaX = this.multiTouchCenterX - newCenterX;
+            const panDeltaY = this.multiTouchCenterY - newCenterY;
+            
+            // Apply panning
+            this.pianoRoll.scrollX = Math.max(0, 
+                Math.min(this.pianoRoll.totalWidth - this.canvas.width, 
+                    this.multiTouchStartScrollX + panDeltaX));
+            this.pianoRoll.scrollY = Math.max(0, 
+                Math.min(this.pianoRoll.totalHeight - this.canvas.height, 
+                    this.multiTouchStartScrollY + panDeltaY));
+            
+            this.pianoRoll.emit('scroll', { 
+                scrollX: this.pianoRoll.scrollX, 
+                scrollY: this.pianoRoll.scrollY 
+            });
+            this.pianoRoll.dirty = true;
+        }
     }
 }

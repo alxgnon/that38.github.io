@@ -2,9 +2,9 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>that72.org</title>
-    <link rel="stylesheet" href="css/styles.css?v=20250527022704">
+    <link rel="stylesheet" href="css/styles.css?v=20250527112933">
 </head>
 <body>
     <div id="menubar">
@@ -17,7 +17,7 @@
                 <div class="menu-option" id="menu-save-as">Save As...</div>
                 <div class="menu-separator"></div>
                 <div class="menu-option" id="menu-import-org">Import Org Maker (.org)...</div>
-                <div class="menu-option disabled" id="menu-import-midi">Import MIDI (.mid)...</div>
+                <div class="menu-option" id="menu-import-midi">Import MIDI (.mid)...</div>
                 <div class="menu-separator"></div>
                 <div class="menu-option has-submenu">
                     <span>Sample Songs</span>
@@ -29,6 +29,28 @@
                         <div class="menu-option" data-org="songs/Pixel/snowfalling.org">Snow Falling</div>
                         <div class="menu-option" data-org="songs/Pixel/town0.org">Town</div>
                         <div class="menu-option" data-org="songs/Pixel/happy00.org">Happy</div>
+                        <div class="menu-separator"></div>
+                        <div class="menu-option has-submenu">
+                            <span>Classical MIDI</span>
+                            <span class="submenu-arrow">▶</span>
+                            <div class="menu-submenu">
+                                <div class="menu-option" data-midi="songs/classical/pachelbel_canon.mid">Pachelbel - Canon in D</div>
+                                <div class="menu-option" data-midi="songs/classical/bach_jesu_joy.mid">Bach - Jesu, Joy of Man's Desiring</div>
+                                <div class="menu-option" data-midi="songs/classical/bach_invention_4.mid">Bach - Invention No. 4 in D minor</div>
+                                <div class="menu-option" data-midi="songs/classical/bach_invention_8.mid">Bach - Invention No. 8 in F major</div>
+                                <div class="menu-option" data-midi="songs/classical/bach_minuet_g.mid">Bach - Minuet in G</div>
+                                <div class="menu-option" data-midi="songs/classical/beethoven_fur_elise.mid">Beethoven - Für Elise</div>
+                                <div class="menu-option" data-midi="songs/classical/beethoven_moonlight_1.mid">Beethoven - Moonlight Sonata (1st mov.)</div>
+                                <div class="menu-option" data-midi="songs/classical/mozart_k331_1.mid">Mozart - Piano Sonata K.331 (1st mov.)</div>
+                                <div class="menu-option" data-midi="songs/classical/mozart_turkish_march.mid">Mozart - Turkish March</div>
+                                <div class="menu-option" data-midi="songs/classical/mozart_eine_kleine.mid">Mozart - Eine kleine Nachtmusik</div>
+                                <div class="menu-option" data-midi="songs/classical/chopin_prelude_e.mid">Chopin - Prelude in E minor</div>
+                                <div class="menu-option" data-midi="songs/classical/chopin_waltz_a.mid">Chopin - Waltz in A minor</div>
+                                <div class="menu-option" data-midi="songs/classical/brahms_lullaby.mid">Brahms - Lullaby</div>
+                                <div class="menu-option" data-midi="songs/classical/grieg_morning.mid">Grieg - Morning Mood</div>
+                                <div class="menu-option" data-midi="songs/classical/satie_gymnopedie_1.mid">Satie - Gymnopédie No. 1</div>
+                            </div>
+                        </div>
                         <div class="menu-separator"></div>
                         <div class="menu-option has-submenu">
                             <span>More Songs</span>
@@ -220,6 +242,6 @@
     </div>
     
     <!-- Load JavaScript modules -->
-    <script type="module" src="js/main.js?v=20250527022704"></script>
+    <script type="module" src="js/main.js?v=20250527112933"></script>
 </body>
 </html>

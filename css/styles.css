@@ -9,6 +9,9 @@ body {
     height: 100vh;
     display: flex;
     flex-direction: column;
+    touch-action: none;
+    -webkit-user-select: none;
+    user-select: none;
 }
 
 /* Main container */
@@ -166,6 +169,7 @@ input[type="range"] {
     -webkit-appearance: none;
     appearance: none;
     border-radius: 2px;
+    position: relative;
 }
 
 input[type="range"]::-webkit-slider-thumb {
@@ -259,13 +263,14 @@ select:hover {
     z-index: 1000;
 }
 
+
 .menu-item.active .menu-dropdown {
     display: block;
 }
 
 .menu-option {
     padding: 6px 20px;
-    cursor: default;
+    cursor: pointer;
     position: relative;
 }
 
@@ -307,15 +312,22 @@ select:hover {
     min-width: 200px;
     display: none;
     box-shadow: 2px 2px 8px rgba(0, 0, 0, 0.3);
-    z-index: 1001;
+    z-index: 1002;
 }
 
 .menu-option.has-submenu {
     padding-right: 30px;
+    position: relative;
 }
 
-.menu-option.has-submenu:hover .menu-submenu {
-    display: block;
+/* Show direct submenu when hovering parent */
+.menu-option.has-submenu:hover > .menu-submenu {
+    display: block !important;
+}
+
+/* Ensure nested submenus work */
+.menu-submenu .menu-option.has-submenu:hover > .menu-submenu {
+    display: block !important;
 }
 
 .submenu-arrow {
@@ -681,4 +693,120 @@ select:hover {
 .save-as-buttons .save-as-confirm:hover {
     background-color: #357abd;
     border-color: #28608e;
+}
+
+/* Mobile styles */
+@media (max-width: 768px) {
+    /* Increase touch targets */
+    button {
+        min-height: 44px;
+        min-width: 44px;
+        font-size: 14px;
+    }
+    
+    select {
+        min-height: 44px;
+        font-size: 14px;
+    }
+    
+    input[type="number"] {
+        min-height: 44px;
+        font-size: 14px;
+    }
+    
+    /* Adjust controls layout for mobile */
+    #controls {
+        flex-wrap: wrap;
+        height: auto;
+        padding: 10px;
+        gap: 10px;
+    }
+    
+    .control-group {
+        flex-wrap: wrap;
+    }
+    
+    /* Hide labels on mobile to save space */
+    .control-group label {
+        display: none;
+    }
+    
+    /* Make modals mobile-friendly */
+    .modal-content {
+        width: 90%;
+        max-width: 90%;
+        margin: 20px;
+        max-height: 90vh;
+        overflow-y: auto;
+    }
+    
+    /* Adjust shortcut dialog for mobile */
+    .shortcuts-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    /* Piano keys adjustments */
+    .piano-key {
+        min-width: 60px;
+    }
+    
+    /* Note resize handles for touch */
+    .note-resize-handle {
+        width: 20px;
+        height: 100%;
+    }
+    
+    /* Dropdown menus */
+    .dropdown-content {
+        min-width: 200px;
+        right: 0;
+        left: auto;
+    }
+}
+
+@media (max-width: 480px) {
+    /* Even more compact layout for small phones */
+    #controls {
+        padding: 5px;
+    }
+    
+    button {
+        padding: 8px 12px;
+    }
+    
+    .modal-content {
+        margin: 10px;
+    }
+}
+
+/* Touch device optimization */
+@media (pointer: coarse) {
+    /* Make touch targets larger on mobile */
+    .controls button {
+        min-width: 44px;
+        min-height: 44px;
+        padding: 10px;
+    }
+    
+    .controls select,
+    .controls input[type="number"] {
+        min-height: 44px;
+        font-size: 16px; /* Prevents zoom on iOS */
+    }
+    
+    /* Larger slider thumb for touch */
+    input[type="range"]::-webkit-slider-thumb {
+        width: 24px;
+        height: 24px;
+    }
+    
+    input[type="range"]::-moz-range-thumb {
+        width: 24px;
+        height: 24px;
+    }
+    
+    /* Prevent accidental touches */
+    canvas {
+        touch-action: none;
+    }
 }

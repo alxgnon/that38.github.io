@@ -154,18 +154,40 @@ export class NoteManager {
      */
     resizeSelectedNotes(deltaWidth, direction, originalWidths, originalPositions) {
         const subdivisionWidth = GRID_WIDTH / GRID_SUBDIVISIONS;
+        const gridSnap = this.pianoRoll?.gridSnap || false;
         
         for (const note of this.selectedNotes) {
             const originalWidth = originalWidths?.get(note) || note.width;
+            const originalPos = originalPositions?.get(note);
             
             if (direction === 'right') {
-                // Calculate new width based on original width + delta
-                note.width = Math.max(subdivisionWidth, originalWidth + deltaWidth);
+                // Calculate new right edge
+                let newRightEdge = (originalPos?.x || note.x) + originalWidth + deltaWidth;
+                
+                // Snap to grid if enabled
+                if (gridSnap) {
+                    newRightEdge = Math.round((newRightEdge - PIANO_KEY_WIDTH) / subdivisionWidth) * 
+                                   subdivisionWidth + PIANO_KEY_WIDTH;
+                }
+                
+                // Calculate new width from snapped edge
+                const newWidth = newRightEdge - note.x;
+                note.width = Math.max(subdivisionWidth, newWidth);
             } else if (direction === 'left') {
-                const originalPos = originalPositions?.get(note);
                 if (originalPos) {
-                    const newX = originalPos.x + deltaWidth;
-                    const newWidth = originalWidth - deltaWidth;
+                    // Calculate new left edge
+                    let newX = originalPos.x + deltaWidth;
+                    
+                    // Snap to grid if enabled
+                    if (gridSnap) {
+                        newX = Math.round((newX - PIANO_KEY_WIDTH) / subdivisionWidth) * 
+                               subdivisionWidth + PIANO_KEY_WIDTH;
+                    }
+                    
+                    // Keep right edge fixed
+                    const rightEdge = originalPos.x + originalWidth;
+                    const newWidth = rightEdge - newX;
+                    
                     if (newWidth >= subdivisionWidth && newX >= PIANO_KEY_WIDTH) {
                         note.x = newX;
                         note.width = newWidth;

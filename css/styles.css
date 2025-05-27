@@ -886,3 +886,80 @@ select:hover {
         touch-action: none;
     }
 }
+
+/* Mobile responsive styles */
+@media (max-width: 768px) {
+    /* Hide menu bar on mobile to save space */
+    #menubar {
+        display: none;
+    }
+    
+    /* Make controls more compact on mobile */
+    #controls {
+        flex-wrap: wrap;
+        height: auto;
+        padding: 5px;
+        gap: 5px;
+    }
+    
+    /* Smaller title on mobile */
+    h1 {
+        font-size: 12px;
+        padding-right: 5px;
+    }
+    
+    /* Compact control groups */
+    .control-group {
+        gap: 4px;
+    }
+    
+    /* Smaller buttons */
+    .control-group button {
+        padding: 3px 6px;
+        font-size: 11px;
+        min-width: 32px;
+        min-height: 32px;
+    }
+    
+    /* Hide volume label, keep slider */
+    .control-group.volume-group label {
+        font-size: 0;
+    }
+    
+    .control-group.volume-group input[type="range"] {
+        width: 60px;
+        margin-left: 0;
+    }
+    
+    /* Smaller loop inputs */
+    .loop-range-container {
+        padding: 1px 4px;
+        font-size: 10px;
+    }
+    
+    .loop-range-container input[type="number"] {
+        width: 30px;
+        font-size: 10px;
+    }
+    
+    .loop-range-container span {
+        font-size: 10px;
+    }
+    
+    /* Hide velocity bar on mobile */
+    #velocity-bar {
+        display: none;
+    }
+    
+    /* Adjust layout for mobile */
+    #container {
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+    }
+    
+    #canvas-container {
+        flex: 1;
+        min-height: 0;
+    }
+}

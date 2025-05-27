@@ -35,23 +35,16 @@ export class MidiParser {
             tracks.push(track);
             offset += track.chunkSize + 8; // Track data + chunk header
             
-            // Debug: Log first few events from each track
+            // Debug: Log first few events from each track only if no notes found
             if (track.events.length > 0) {
-                console.log(`Track ${i}: ${track.events.length} events, first 3 times:`, 
-                    track.events.slice(0, 3).map(e => ({ type: e.type, time: e.time })));
-                
-                // Count note events
                 const noteEvents = track.events.filter(e => e.type === 'noteOn' || e.type === 'noteOff');
-                if (noteEvents.length > 0) {
-                    console.log(`  - Contains ${noteEvents.length} note events`);
-                } else {
-                    console.log(`  - No note events found in this track`);
-                    // Show what types of events are in this track
+                if (noteEvents.length === 0) {
+                    console.log(`Track ${i}: ${track.events.length} events but no notes found`);
                     const eventTypes = {};
                     track.events.forEach(e => {
                         eventTypes[e.type] = (eventTypes[e.type] || 0) + 1;
                     });
-                    console.log(`  - Event types in track:`, eventTypes);
+                    console.log(`  - Event types:`, eventTypes);
                 }
             }
         }
@@ -168,6 +161,7 @@ export class MidiParser {
         const eventType = statusByte & 0xF0;
         const channel = statusByte & 0x0F;
         
+        
         switch (eventType) {
             case 0x80: // Note Off
                 return {
@@ -186,10 +180,6 @@ export class MidiParser {
                 if (noteNum > 127) {
                     console.warn(`Invalid MIDI note number: ${noteNum}`);
                     return null;
-                }
-                // Debug problematic files
-                if (velocity > 0 && time === 0) {
-                    console.log(`Note On at time 0: ch=${channel}, note=${noteNum}, vel=${velocity}`);
                 }
                 return {
                     type: velocity === 0 ? 'noteOff' : 'noteOn',
@@ -439,9 +429,7 @@ export class MidiParser {
         
         // Find the actual time range of the MIDI file
         const { minTime, maxTime } = this.findTimeRange(midiData.tracks);
-        // Don't normalize by minTime - preserve the initial silence
-        const normalizedMinTime = 0; // Always start from 0 to preserve timing
-        const timeRange = maxTime - normalizedMinTime;
+        const timeRange = maxTime - minTime;
         
         // Calculate how many measures we need for the entire song
         const ticksPerBeat = midiData.ticksPerQuarter;
@@ -519,14 +507,14 @@ export class MidiParser {
                         const key72 = this.midiNoteTo72edo(shiftedMidiNote);
                         
                         // Calculate positions using pre-calculated pixelsPerTick
-                        // Don't normalize - preserve actual timing from start of file
-                        const normalizedStartTime = noteStart.startTime;
-                        const normalizedEndTime = event.time;
+                        // Normalize times by subtracting minTime to start at measure 0
+                        const normalizedStartTime = noteStart.startTime - minTime;
+                        const normalizedEndTime = event.time - minTime;
                         
                         // For display purposes, we need to map to our 4/4 grid
                         // But preserve the actual timing relationships
-                        // GRID_WIDTH is for 1/16th note, so a quarter note is 4 * GRID_WIDTH
-                        const pixelsPerQuarterNote = GRID_WIDTH * 4; // 4 subdivisions per beat
+                        // GRID_WIDTH represents 1 beat (quarter note), not a subdivision
+                        const pixelsPerQuarterNote = GRID_WIDTH; // GRID_WIDTH = 1 beat
                         const displayPixelsPerTick = pixelsPerQuarterNote / midiData.ticksPerQuarter;
                         
                         const rawX = PIANO_KEY_WIDTH + (normalizedStartTime * displayPixelsPerTick);
@@ -713,12 +701,12 @@ export class MidiParser {
         // In MIDI, ticks are absolute time units
         // We need to convert to our grid system which is tempo-independent
         
-        // Our grid: GRID_WIDTH pixels = 1 subdivision = 1/4 beat
+        // Our grid: GRID_WIDTH pixels = 1 beat (quarter note)
         // MIDI: ticksPerQuarter ticks = 1 beat
         
         // For consistent timing, we use a fixed tempo mapping
         // This ensures notes align to our grid regardless of MIDI tempo
-        const pixelsPerBeat = GRID_WIDTH * 4; // 4 subdivisions per beat
+        const pixelsPerBeat = GRID_WIDTH; // GRID_WIDTH = 1 beat
         const pixelsPerTick = pixelsPerBeat / ticksPerQuarter;
         
         return pixelsPerTick;
@@ -742,7 +730,6 @@ export class MidiParser {
             }
         }
         
-        console.log(`findTimeRange: found ${noteCount} note events`);
         
         return { minTime: minTime === Infinity ? 0 : minTime, maxTime };
     }

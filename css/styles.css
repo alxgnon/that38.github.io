@@ -37,9 +37,9 @@ canvas {
 
 /* Controls panel */
 #controls {
-    padding: 5px 15px;
+    padding: 5px 10px;
     display: flex;
-    gap: 15px;
+    gap: 10px;
     background: #333;
     border-bottom: 1px solid #555;
     align-items: center;
@@ -50,20 +50,30 @@ canvas {
 .control-group {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
 }
 
 .control-group.transport {
-    gap: 5px;
+    gap: 4px;
 }
 
 .control-group.volume-group {
     padding: 0;
 }
 
+.control-group.volume-group label {
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.control-group.volume-group input[type="range"] {
+    width: 80px;
+}
+
 .control-spacer {
-    flex: 1;
-    min-width: 20px;
+    display: none; /* Remove spacer to keep everything left-aligned */
 }
 
 .control-group.loop {
@@ -76,27 +86,28 @@ canvas {
 .loop-range-container {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 4px;
     background: #2a2a2a;
-    padding: 3px 10px;
+    padding: 2px 6px;
     border-radius: 4px;
     border: 1px solid #444;
 }
 
 .loop-range-container span {
     color: #aaa;
-    font-size: 12px;
+    font-size: 11px;
 }
 
 .loop-range-container span:first-child {
     color: #ccc;
-    margin-right: 4px;
+    margin-right: 2px;
 }
 
 .loop-range-container input[type="number"] {
-    width: 40px;
+    width: 35px;
     background: #1a1a1a;
     border: 1px solid #3a3a3a;
+    font-size: 11px;
     color: #fff;
     text-align: center;
     font-size: 12px;
@@ -112,7 +123,7 @@ canvas {
 
 /* Button styles */
 button {
-    padding: 5px 12px;
+    padding: 4px 8px;
     background: #333;
     color: #fff;
     border: 1px solid #555;
@@ -121,13 +132,13 @@ button {
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 13px;
+    font-size: 12px;
 }
 
 /* Transport buttons (play/stop) */
 .transport button {
-    padding: 5px 10px;
-    min-width: 32px;
+    padding: 4px 6px;
+    min-width: 28px;
 }
 
 button:hover {
@@ -146,6 +157,8 @@ button.active {
 #loopBtn {
     background: #444;
     border: 1px solid #666;
+    padding: 4px 6px;
+    min-width: 28px;
 }
 
 #loopBtn.active {
@@ -160,8 +173,8 @@ button svg {
 /* Typography */
 h1 {
     margin: 0;
-    font-size: 16px;
-    padding-right: 20px;
+    font-size: 14px;
+    padding-right: 10px;
 }
 
 /* Form controls */

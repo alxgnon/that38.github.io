@@ -224,7 +224,8 @@ export class OrgParser {
             loopStart,
             loopEnd,
             loopEnabled: header.loopEnd > header.loopStart,
-            trackInfo: instruments // Include instrument/track information
+            trackInfo: instruments, // Include instrument/track information
+            msPerTick: msPerTick // Store the original tick duration
         };
     }
 
@@ -249,7 +250,9 @@ export class OrgParser {
                 const x = PIANO_KEY_WIDTH + (event.position * pixelsPerTick);
                 const key72 = this.convertKeyTo72edo(event.key);
                 const y = (NUM_OCTAVES * NOTES_PER_OCTAVE - 1 - key72) * NOTE_HEIGHT;
-                const width = Math.max(GRID_WIDTH / 4, event.length * pixelsPerTick);
+                // For very short notes, use the actual length without minimum
+                // This preserves the staccato/gating effect
+                const width = event.length * pixelsPerTick;
                 
                 // Initial volume and pan
                 const velocity = event.volume !== 255 ? Math.round(event.volume / 2) : 100;
@@ -273,6 +276,7 @@ export class OrgParser {
                     panAutomation: []     // Array of {position, pan} points
                 };
                 
+                
                 // Track this as an active note
                 activeNotes.set(event.key, {
                     note: noteData,
@@ -293,10 +297,12 @@ export class OrgParser {
                         if (event.volume !== 255) {
                             const relativePos = event.position - activeNote.startPos;
                             const x = relativePos * pixelsPerTick;
+                            // Store the actual milliseconds per tick from the ORG header
                             activeNote.note.volumeAutomation.push({
                                 position: x,
                                 tick: relativePos,
-                                volume: Math.round(event.volume / 2)
+                                volume: Math.round(event.volume / 2),
+                                absolutePosition: event.position // Store absolute position for timing
                             });
                         }
                         

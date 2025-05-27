@@ -255,6 +255,10 @@ export class PianoRoll {
     }
 
     scheduleNoteAtTime(note, startTime, duration) {
+        // Calculate tick duration for automation timing
+        // Use the actual ms per tick from the org file if available
+        const tickDuration = this.orgMsPerTick ? this.orgMsPerTick / 1000 : this.beatDuration / 48000; // Convert to seconds
+        
         // Use Web Audio API scheduling for accurate timing
         this.audioEngine.playNote(
             note.key,
@@ -267,7 +271,8 @@ export class PianoRoll {
             note.pipi || false,
             note.volumeAutomation || null,
             note.panAutomation || null,
-            note.freqAdjust || 0
+            note.freqAdjust || 0,
+            tickDuration
         ).then(noteData => {
             if (noteData) {
                 const noteId = `${note.key}-${startTime}`;
@@ -405,6 +410,9 @@ export class PianoRoll {
             
             // Clear existing notes
             this.noteManager.clearAll();
+            
+            // Store org-specific timing info
+            this.orgMsPerTick = converted.msPerTick;
             
             // Add converted notes
             converted.notes.forEach(noteData => {

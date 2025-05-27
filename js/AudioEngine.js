@@ -160,8 +160,8 @@ export class AudioEngine {
                     const waveIndex = parseInt(sampleName.substring(5));
                     if (waveIndex <= 99) {
                         // For now, just create the basic 256-sample buffer
-                        // The extended waveform with decay would need to be implemented
-                        // based on the oct_wave table and pipi flag
+                        // Check if this waveform might create gating
+                        let silentSamples = 0;
                         const audioBuffer = this.audioContext.createBuffer(
                             1, 256, this.audioContext.sampleRate
                         );
@@ -226,7 +226,7 @@ export class AudioEngine {
      * @param {number} when - When to play (audio context time)
      * @param {number} duration - Note duration in seconds
      */
-    async playNote(keyNumber, velocity = 100, sampleName, isGlissando = false, pan = 0, when = 0, duration = 0, pipi = null, volumeAutomation = null, panAutomation = null, freqAdjust = 0) {
+    async playNote(keyNumber, velocity = 100, sampleName, isGlissando = false, pan = 0, when = 0, duration = 0, pipi = null, volumeAutomation = null, panAutomation = null, freqAdjust = 0, tickDuration = null) {
         
         // For glissando with portamento, update existing note's pitch
         if (isGlissando && this.currentGlissandoNote) {
@@ -337,14 +337,11 @@ export class AudioEngine {
                 // Sort automation points by tick position
                 const sortedAutomation = [...volumeAutomation].sort((a, b) => a.tick - b.tick);
                 
-                // Calculate tick duration
-                // The automation tick positions are relative to note start
-                // We need to map them to actual time based on note duration
-                const maxTick = Math.max(...sortedAutomation.map(p => p.tick), 1);
-                const tickDuration = duration / maxTick;
+                // Use provided tick duration or calculate from note duration
+                const actualTickDuration = tickDuration || (duration / Math.max(...sortedAutomation.map(p => p.tick), 1));
                 
                 sortedAutomation.forEach((point, index) => {
-                    const time = startTime + (point.tick * tickDuration);
+                    const time = startTime + (point.tick * actualTickDuration);
                     const vol = point.volume * ORG_VELOCITY_SCALE;
                     const automationVolume = Math.pow(10, ((vol - 255) * 8) / 2000);
                     
@@ -364,11 +361,10 @@ export class AudioEngine {
             // Apply pan automation if provided
             if (panAutomation && panAutomation.length > 0) {
                 const sortedPanAutomation = [...panAutomation].sort((a, b) => a.tick - b.tick);
-                const maxTick = Math.max(...sortedPanAutomation.map(p => p.tick), 1);
-                const tickDuration = duration / maxTick;
+                const actualTickDuration = tickDuration || (duration / Math.max(...sortedPanAutomation.map(p => p.tick), 1));
                 
                 sortedPanAutomation.forEach(point => {
-                    const time = startTime + (point.tick * tickDuration);
+                    const time = startTime + (point.tick * actualTickDuration);
                     panner.pan.linearRampToValueAtTime(point.pan / 100, time);
                 });
             }

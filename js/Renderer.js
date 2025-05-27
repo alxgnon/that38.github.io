@@ -105,37 +105,7 @@ export class Renderer {
             this.ctx.stroke();
         }
         
-        // Horizontal lines (notes)
-        this.ctx.strokeStyle = COLORS.grid;
-        this.ctx.lineWidth = 1;
-        
-        for (let y = 0; y < endY; y += NOTE_HEIGHT) {
-            if (y < startY) continue;
-            
-            // Highlight octave boundaries
-            const noteInOctave = Math.floor(y / NOTE_HEIGHT) % NOTES_PER_OCTAVE;
-            if (noteInOctave === 0) {
-                this.ctx.strokeStyle = '#444';
-            } else {
-                this.ctx.strokeStyle = COLORS.grid;
-            }
-            
-            this.ctx.beginPath();
-            this.ctx.moveTo(startX, y);
-            this.ctx.lineTo(endX, y);
-            this.ctx.stroke();
-        }
-        
-        // Highlight hovered row
-        if (this.pianoRoll.hoveredRow >= 0) {
-            this.ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
-            this.ctx.fillRect(
-                startX,
-                this.pianoRoll.hoveredRow * NOTE_HEIGHT,
-                endX - startX,
-                NOTE_HEIGHT
-            );
-        }
+        // No horizontal lines in the note area
     }
 
     /**
@@ -293,13 +263,17 @@ export class Renderer {
             // Determine if this is a "black key" equivalent
             const isBlackKey = [1, 3, 6, 8, 10].includes(noteInScale);
             
-            // Check if key is pressed
+            // Check if key is pressed or hovered
             const keyNumber = this.pianoRoll.numKeys - 1 - i;
             const isPressed = this.pianoRoll.inputHandler?.pressedKeys.has(keyNumber);
+            const isHovered = i === this.pianoRoll.hoveredRow;
             
             // Draw key
             if (isPressed) {
                 this.ctx.fillStyle = '#4a9eff';
+            } else if (isHovered) {
+                // Highlight hovered key
+                this.ctx.fillStyle = isBlackKey ? '#3a3a3a' : '#5a5a5a';
             } else if (isBlackKey) {
                 this.ctx.fillStyle = COLORS.blackKey;
             } else {

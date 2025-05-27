@@ -226,7 +226,7 @@ export class AudioEngine {
      * @param {number} when - When to play (audio context time)
      * @param {number} duration - Note duration in seconds
      */
-    async playNote(keyNumber, velocity = 100, sampleName, isGlissando = false, pan = 0, when = 0, duration = 0, pipi = null, volumeAutomation = null, panAutomation = null) {
+    async playNote(keyNumber, velocity = 100, sampleName, isGlissando = false, pan = 0, when = 0, duration = 0, pipi = null, volumeAutomation = null, panAutomation = null, freqAdjust = 0) {
         // For glissando with portamento, update existing note's pitch
         if (isGlissando && this.currentGlissandoNote) {
             this.updateGlissandoPitch(keyNumber, sampleName);
@@ -271,7 +271,7 @@ export class AudioEngine {
         const isDrum = sampleName.startsWith('ORG_D');
         
         // Calculate playback rate for pitch
-        source.playbackRate.value = this.calculatePlaybackRate(keyNumber, sampleName, isDrum);
+        source.playbackRate.value = this.calculatePlaybackRate(keyNumber, sampleName, isDrum, freqAdjust);
         
         // Use authentic Organya volume scaling
         const orgVol = velocity * ORG_VELOCITY_SCALE;
@@ -302,7 +302,7 @@ export class AudioEngine {
                 const numLoops = octSizes[Math.min(octave, 7)] * actualPipi;
                 
                 // Calculate when the loops would complete
-                const playbackRate = this.calculatePlaybackRate(keyNumber, sampleName, false);
+                const playbackRate = this.calculatePlaybackRate(keyNumber, sampleName, false, freqAdjust);
                 const loopDuration = (256 * numLoops) / (this.audioContext.sampleRate * playbackRate);
                 
                 
@@ -425,7 +425,7 @@ export class AudioEngine {
      */
     updateGlissandoPitch(keyNumber, sampleName) {
         const isDrum = sampleName.startsWith('ORG_D');
-        const targetRate = this.calculatePlaybackRate(keyNumber, sampleName, isDrum);
+        const targetRate = this.calculatePlaybackRate(keyNumber, sampleName, isDrum, 0);
         
         // Smooth pitch transition
         const now = this.audioContext.currentTime;
@@ -446,17 +446,19 @@ export class AudioEngine {
     /**
      * Calculate playback rate
      */
-    calculatePlaybackRate(keyNumber, sampleName, isDrum) {
+    calculatePlaybackRate(keyNumber, sampleName, isDrum, freqAdjust = 0) {
         if (isDrum) {
             const drumKey = Math.round(keyNumber / 6);
             const clampedKey = Math.max(0, Math.min(255, drumKey));
             const drumFreq = clampedKey * 800 + 100;
             return drumFreq / BASE_SAMPLE_RATE;
         } else {
+            // Apply frequency adjustment (instrument pitch bend)
             const freq = this.getFrequency(keyNumber);
+            const adjustedFreq = freq + freqAdjust;
             const baseKey = 4 * NOTES_PER_OCTAVE;
             const baseFreq = this.getFrequency(baseKey);
-            return (freq / baseFreq) * 2 * Math.sqrt(2);
+            return (adjustedFreq / baseFreq) * 2 * Math.sqrt(2);
         }
     }
 

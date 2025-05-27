@@ -87,7 +87,6 @@ export class OrgParser {
         
         const instruments = [];
         
-        // Remove debug output now that we understand the structure
         
         for (let i = 0; i < 16; i++) {
             const freq = view.getUint16(offset + i * 6, true);
@@ -212,11 +211,6 @@ export class OrgParser {
             // Process notes with volume automation
             const processedNotes = this.processVolumeAutomation(track.notes, instrument, instrumentName, pixelsPerTick);
             
-            // Debug: Log first track with automation
-            if (trackIndex === 1 && processedNotes.some(n => n.volumeAutomation.length > 0)) {
-                console.log(`Track ${trackIndex} has volume automation:`, 
-                    processedNotes.filter(n => n.volumeAutomation.length > 0).slice(0, 3));
-            }
             
             notes.push(...processedNotes);
         });
@@ -267,6 +261,7 @@ export class OrgParser {
                     pan,
                     instrument: instrumentName,
                     pipi: instrument.pipi,
+                    freqAdjust: instrument.pitch - 1000, // Frequency adjustment from default
                     volumeAutomation: [], // Array of {position, volume} points
                     panAutomation: []     // Array of {position, pan} points
                 };

@@ -266,7 +266,8 @@ export class PianoRoll {
             duration,
             note.pipi || false,
             note.volumeAutomation || null,
-            note.panAutomation || null
+            note.panAutomation || null,
+            note.freqAdjust || 0
         ).then(noteData => {
             if (noteData) {
                 const noteId = `${note.key}-${startTime}`;
@@ -441,24 +442,6 @@ export class PianoRoll {
     showOrgTrackInfo() {
         if (!this.orgTrackInfo) return;
         
-        console.log('ORG File Track Information:');
-        console.log('==========================');
-        
-        this.orgTrackInfo.forEach((track, index) => {
-            if (track.noteCount > 0) {
-                const trackType = index < 8 ? 'Melodic' : 'Percussion';
-                const trackNum = index < 8 ? index : index - 8;
-                const instrumentName = index < 8 ? `M${String(track.instrument).padStart(2, '0')}` : `D${String(track.instrument).padStart(2, '0')}`;
-                
-                console.log(`${trackType} Track ${trackNum}:`);
-                console.log(`  Instrument: ${instrumentName} (wave ${track.instrument})`);
-                console.log(`  Pitch: ${track.pitch}`);
-                const pipiDesc = track.pipi === 0 ? 'infinite loop' : 'loops ' + track.pipi + ' times per octave';
-                console.log(`  Pipi: ${track.pipi} (${pipiDesc})`);
-                console.log(`  Notes: ${track.noteCount}`);
-                console.log('');
-            }
-        });
     }
     
     exportToJSON() {

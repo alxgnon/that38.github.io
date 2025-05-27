@@ -226,7 +226,7 @@ export class AudioEngine {
      * @param {number} when - When to play (audio context time)
      * @param {number} duration - Note duration in seconds
      */
-    async playNote(keyNumber, velocity = 100, sampleName, isGlissando = false, pan = 0, when = 0, duration = 0, pipi = null) {
+    async playNote(keyNumber, velocity = 100, sampleName, isGlissando = false, pan = 0, when = 0, duration = 0, pipi = null, volumeAutomation = null, panAutomation = null) {
         // For glissando with portamento, update existing note's pitch
         if (isGlissando && this.currentGlissandoNote) {
             this.updateGlissandoPitch(keyNumber, sampleName);
@@ -287,17 +287,19 @@ export class AudioEngine {
             gain.gain.setValueAtTime(authenticVolume, startTime);
         } else {
             // pipi affects looping behavior:
-            // pipi=false (0 in file): loops infinitely
-            // pipi=true (1 in file): loops finite times based on octave
+            // pipi=0: loops infinitely
+            // pipi>0: loops finite times (value indicates loop count per octave)
             // Default to infinite loop if not specified
-            const actualPipi = pipi !== null ? pipi : false;
+            const actualPipi = pipi !== null ? pipi : 0;
             
             // Handle looping based on pipi value
-            if (actualPipi === true) {
-                // pipi=true: finite loops based on octave
+            if (actualPipi > 0) {
+                // pipi>0: finite loops based on octave and pipi value
                 const octave = Math.floor(keyNumber / NOTES_PER_OCTAVE);
+                // The pipi value might affect the number of loops
+                // For now, using the original octave-based loop counts
                 const octSizes = [4, 8, 12, 16, 20, 24, 28, 32];
-                const numLoops = octSizes[Math.min(octave, 7)];
+                const numLoops = octSizes[Math.min(octave, 7)] * actualPipi;
                 
                 // Calculate when the loops would complete
                 const playbackRate = this.calculatePlaybackRate(keyNumber, sampleName, false);
@@ -317,7 +319,7 @@ export class AudioEngine {
                     noteDecayTime = startTime + loopDuration;
                 }
             } else {
-                // pipi=false: loop infinitely
+                // pipi=0: loop infinitely
                 source.loop = true;
             }
             
@@ -327,6 +329,39 @@ export class AudioEngine {
             } else {
                 gain.gain.setValueAtTime(0, startTime);
                 gain.gain.linearRampToValueAtTime(authenticVolume, startTime + 0.002);
+            }
+            
+            // Apply volume automation if provided
+            if (volumeAutomation && volumeAutomation.length > 0) {
+                // Sort automation points by tick position
+                const sortedAutomation = [...volumeAutomation].sort((a, b) => a.tick - b.tick);
+                
+                // Calculate tick duration
+                // The automation tick positions are relative to note start
+                // We need to map them to actual time based on note duration
+                const maxTick = Math.max(...sortedAutomation.map(p => p.tick), 1);
+                const tickDuration = duration / maxTick;
+                
+                sortedAutomation.forEach(point => {
+                    const time = startTime + (point.tick * tickDuration);
+                    const vol = point.volume * ORG_VELOCITY_SCALE;
+                    const automationVolume = Math.pow(10, ((vol - 255) * 8) / 2000);
+                    
+                    // Use linear ramp for smooth transitions
+                    gain.gain.linearRampToValueAtTime(automationVolume, time);
+                });
+            }
+            
+            // Apply pan automation if provided
+            if (panAutomation && panAutomation.length > 0) {
+                const sortedPanAutomation = [...panAutomation].sort((a, b) => a.tick - b.tick);
+                const maxTick = Math.max(...sortedPanAutomation.map(p => p.tick), 1);
+                const tickDuration = duration / maxTick;
+                
+                sortedPanAutomation.forEach(point => {
+                    const time = startTime + (point.tick * tickDuration);
+                    panner.pan.linearRampToValueAtTime(point.pan / 100, time);
+                });
             }
         }
         

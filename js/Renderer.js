@@ -308,6 +308,17 @@ export class Renderer {
                     this.ctx.strokeRect(note.x, note.y, note.width, note.height);
                 }
             }
+            
+            // Draw pipi indicators
+            for (const note of notes) {
+                if (note.pipi && !this.pianoRoll.noteManager.selectedNotes.has(note)) {
+                    this.ctx.save();
+                    this.ctx.fillStyle = '#ffff00';
+                    this.ctx.font = 'bold 10px Arial';
+                    this.ctx.fillText('P', note.x + 2, note.y + 10);
+                    this.ctx.restore();
+                }
+            }
         }
         
         // Draw selected notes on top
@@ -357,6 +368,16 @@ export class Renderer {
             const velocityAlpha = 1 - (note.velocity / 127) * 0.6;
             this.ctx.fillStyle = `rgba(0, 0, 0, ${velocityAlpha})`;
             this.ctx.fillRect(note.x, note.y, note.width, note.height);
+        }
+        
+        // Draw pipi indicator for notes with pipi=true
+        if (note.pipi) {
+            this.ctx.save();
+            // Draw a small "P" indicator in the top-left corner
+            this.ctx.fillStyle = isSelected ? '#ffffff' : '#ffff00';
+            this.ctx.font = 'bold 10px Arial';
+            this.ctx.fillText('P', note.x + 2, note.y + 10);
+            this.ctx.restore();
         }
         
         // Draw pan indicator if not centered

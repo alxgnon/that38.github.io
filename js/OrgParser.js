@@ -37,6 +37,7 @@ export class OrgParser {
             throw new Error('Invalid ORG file signature');
         }
         
+        
         // Read instruments
         const instruments = this.readInstruments(view, offset);
         offset += 16 * 6; // 16 tracks * 6 bytes each
@@ -86,13 +87,21 @@ export class OrgParser {
         
         const instruments = [];
         
+        // Remove debug output now that we understand the structure
+        
         for (let i = 0; i < 16; i++) {
+            const freq = view.getUint16(offset + i * 6, true);
+            const wave = view.getUint8(offset + i * 6 + 2);
+            const pipiValue = view.getUint8(offset + i * 6 + 3);
+            const noteCount = view.getUint16(offset + i * 6 + 4, true);
+            
             const inst = {
-                pitch: view.getUint16(offset + i * 6, true),
-                instrument: view.getUint8(offset + i * 6 + 2),
-                pipi: view.getUint8(offset + i * 6 + 3) !== 0,
-                noteCount: view.getUint16(offset + i * 6 + 4, true)
+                pitch: freq,
+                instrument: wave,
+                pipi: pipiValue,
+                noteCount: noteCount
             };
+            
             instruments.push(inst);
         }
         
@@ -164,8 +173,7 @@ export class OrgParser {
                     offset += 1;
                 }
                 
-                // Filter out notes with key = 255 (no note)
-                track.notes = track.notes.filter(note => note.key !== 255);
+                // Don't filter out notes with key = 255 - they might be volume/pan changes
             }
             
             tracks.push(track);
@@ -201,39 +209,16 @@ export class OrgParser {
             const instrument = instruments[trackIndex];
             const instrumentName = this.getInstrumentName(instrument.instrument, trackIndex);
             
-            track.notes.forEach(note => {
-                // Convert position (in ticks) to pixels
-                const x = PIANO_KEY_WIDTH + (note.position * pixelsPerTick);
-                
-                // Convert ORG key to 72edo key
-                const key72 = this.convertKeyTo72edo(note.key);
-                const y = (NUM_OCTAVES * NOTES_PER_OCTAVE - 1 - key72) * NOTE_HEIGHT;
-                
-                // Convert length (in ticks) to pixels
-                const width = Math.max(GRID_WIDTH / 4, note.length * pixelsPerTick);
-                
-                // Convert volume (0-254 in ORG to 0-127 MIDI velocity)
-                const velocity = Math.round(note.volume / 2);
-                
-                // Convert pan (0-12 in ORG, 6 = center)
-                // 255 is a special value meaning "no pan" or "default center"
-                let pan = 0;
-                if (note.pan !== 255 && note.pan <= 12) {
-                    pan = (note.pan - 6) * 100 / 6;
-                }
-                
-                notes.push({
-                    x,
-                    y,
-                    width,
-                    height: NOTE_HEIGHT,
-                    key: key72,
-                    velocity,
-                    pan,
-                    instrument: instrumentName,
-                    pipi: instrument.pipi  // Pass through the pipi flag
-                });
-            });
+            // Process notes with volume automation
+            const processedNotes = this.processVolumeAutomation(track.notes, instrument, instrumentName, pixelsPerTick);
+            
+            // Debug: Log first track with automation
+            if (trackIndex === 1 && processedNotes.some(n => n.volumeAutomation.length > 0)) {
+                console.log(`Track ${trackIndex} has volume automation:`, 
+                    processedNotes.filter(n => n.volumeAutomation.length > 0).slice(0, 3));
+            }
+            
+            notes.push(...processedNotes);
         });
         
         // Calculate loop points in measures
@@ -245,10 +230,98 @@ export class OrgParser {
             tempo: Math.round(orgBpm), // Convert from wait value to BPM
             loopStart,
             loopEnd,
-            loopEnabled: header.loopEnd > header.loopStart
+            loopEnabled: header.loopEnd > header.loopStart,
+            trackInfo: instruments // Include instrument/track information
         };
     }
 
+    /**
+     * Process notes with volume automation
+     */
+    static processVolumeAutomation(events, instrument, instrumentName, pixelsPerTick) {
+        const notes = [];
+        const activeNotes = new Map(); // Track active notes by key
+        
+        events.forEach(event => {
+            if (event.key !== 255) {
+                // New note starts
+                const x = PIANO_KEY_WIDTH + (event.position * pixelsPerTick);
+                const key72 = this.convertKeyTo72edo(event.key);
+                const y = (NUM_OCTAVES * NOTES_PER_OCTAVE - 1 - key72) * NOTE_HEIGHT;
+                const width = Math.max(GRID_WIDTH / 4, event.length * pixelsPerTick);
+                
+                // Initial volume and pan
+                const velocity = event.volume !== 255 ? Math.round(event.volume / 2) : 100;
+                let pan = 0;
+                if (event.pan !== 255 && event.pan <= 12) {
+                    pan = (event.pan - 6) * 100 / 6;
+                }
+                
+                const noteData = {
+                    x,
+                    y,
+                    width,
+                    height: NOTE_HEIGHT,
+                    key: key72,
+                    velocity,
+                    pan,
+                    instrument: instrumentName,
+                    pipi: instrument.pipi,
+                    volumeAutomation: [], // Array of {position, volume} points
+                    panAutomation: []     // Array of {position, pan} points
+                };
+                
+                // Track this as an active note
+                activeNotes.set(event.key, {
+                    note: noteData,
+                    startPos: event.position,
+                    endPos: event.position + event.length
+                });
+                
+                notes.push(noteData);
+                
+            } else {
+                // Volume/pan change event
+                // Find which note this applies to
+                for (const [key, activeNote] of activeNotes) {
+                    if (event.position >= activeNote.startPos && 
+                        event.position < activeNote.endPos) {
+                        
+                        // Add volume automation point
+                        if (event.volume !== 255) {
+                            const relativePos = event.position - activeNote.startPos;
+                            const x = relativePos * pixelsPerTick;
+                            activeNote.note.volumeAutomation.push({
+                                position: x,
+                                tick: relativePos,
+                                volume: Math.round(event.volume / 2)
+                            });
+                        }
+                        
+                        // Add pan automation point
+                        if (event.pan !== 255 && event.pan <= 12) {
+                            const relativePos = event.position - activeNote.startPos;
+                            const x = relativePos * pixelsPerTick;
+                            const pan = (event.pan - 6) * 100 / 6;
+                            activeNote.note.panAutomation.push({
+                                position: x,
+                                tick: relativePos,
+                                pan: pan
+                            });
+                        }
+                        
+                        break; // Only apply to one active note
+                    }
+                }
+            }
+        });
+        
+        // Clean up active notes that have ended
+        activeNotes.clear();
+        
+        return notes;
+    }
+    
     /**
      * Convert ORG key (0-95) to 72edo key
      */

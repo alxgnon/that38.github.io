@@ -64,6 +64,9 @@ export class PianoRoll {
         this.loopStart = 0;
         this.loopEnd = 4;
         
+        // Store org file track info when loaded
+        this.orgTrackInfo = null;
+        
         // Performance
         this.dirty = false; // Don't render until something changes
         this.showFPS = true;
@@ -261,7 +264,9 @@ export class PianoRoll {
             note.pan,
             startTime,
             duration,
-            note.pipi || false
+            note.pipi || false,
+            note.volumeAutomation || null,
+            note.panAutomation || null
         ).then(noteData => {
             if (noteData) {
                 const noteId = `${note.key}-${startTime}`;
@@ -409,6 +414,12 @@ export class PianoRoll {
             this.setTempo(converted.tempo);
             this.setLoop(converted.loopEnabled, converted.loopStart, converted.loopEnd);
             
+            // Store track info for display
+            if (converted.trackInfo) {
+                this.orgTrackInfo = converted.trackInfo;
+                this.showOrgTrackInfo();
+            }
+            
             // Update UI
             document.getElementById('loopBtn').classList.toggle('active', converted.loopEnabled);
             document.getElementById('loopStartInput').value = converted.loopStart + 1;
@@ -426,6 +437,30 @@ export class PianoRoll {
     }
     
     // Serialization methods
+    // Show org track info in console or modal
+    showOrgTrackInfo() {
+        if (!this.orgTrackInfo) return;
+        
+        console.log('ORG File Track Information:');
+        console.log('==========================');
+        
+        this.orgTrackInfo.forEach((track, index) => {
+            if (track.noteCount > 0) {
+                const trackType = index < 8 ? 'Melodic' : 'Percussion';
+                const trackNum = index < 8 ? index : index - 8;
+                const instrumentName = index < 8 ? `M${String(track.instrument).padStart(2, '0')}` : `D${String(track.instrument).padStart(2, '0')}`;
+                
+                console.log(`${trackType} Track ${trackNum}:`);
+                console.log(`  Instrument: ${instrumentName} (wave ${track.instrument})`);
+                console.log(`  Pitch: ${track.pitch}`);
+                const pipiDesc = track.pipi === 0 ? 'infinite loop' : 'loops ' + track.pipi + ' times per octave';
+                console.log(`  Pipi: ${track.pipi} (${pipiDesc})`);
+                console.log(`  Notes: ${track.noteCount}`);
+                console.log('');
+            }
+        });
+    }
+    
     exportToJSON() {
         const beatWidth = GRID_WIDTH / GRID_SUBDIVISIONS;
         const measureWidth = GRID_WIDTH * BEATS_PER_MEASURE;
@@ -468,8 +503,9 @@ export class PianoRoll {
         try {
             const songData = JSON.parse(jsonString);
             
-            // Clear existing notes
+            // Clear existing notes and org info
             this.noteManager.clearAll();
+            this.orgTrackInfo = null;
             
             // Set tempo
             if (songData.tempo) {

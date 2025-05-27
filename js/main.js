@@ -742,9 +742,15 @@ async function showSongDirectory(basePath, isMidi = false) {
             let displayName = song;
             if (isMidi) {
                 // Format MIDI filenames for better display
-                displayName = song.replace('.mid', '')
-                    .replace(/_/g, ' ')
-                    .replace(/\b\w/g, l => l.toUpperCase());
+                if (song === 'scarborough1.mid') {
+                    displayName = 'Scarborough Fair';
+                } else if (song === 'jesu-joy.mid') {
+                    displayName = 'Jesu, Joy of Man\'s Desiring';
+                } else {
+                    displayName = song.replace('.mid', '')
+                        .replace(/_/g, ' ')
+                        .replace(/\b\w/g, l => l.toUpperCase());
+                }
             } else {
                 displayName = song.replace('.org', '');
             }

@@ -133,19 +133,28 @@ export class MidiParser {
             if (statusByte < 0x80) {
                 if (!runningStatus) {
                     // Invalid MIDI data - skip this byte
+                    console.warn(`Track ${offset}: Invalid running status at offset ${trackOffset}`);
                     trackOffset++;
                     continue;
                 }
                 statusByte = runningStatus;
                 dataOffset = trackOffset;
             } else {
-                runningStatus = statusByte;
+                // Only update running status for channel messages
+                if (statusByte < 0xF0) {
+                    runningStatus = statusByte;
+                }
             }
             
             const event = this.parseEvent(view, statusByte, dataOffset, currentTime);
             if (event) {
                 events.push(event);
                 trackOffset = dataOffset + event.bytesUsed;
+                
+                // Debug first few events per track
+                if (event.type === 'noteOn' && events.filter(e => e.type === 'noteOn').length <= 5) {
+                    console.log(`Track ${Math.floor((offset-8)/8)} parsing: Found ${event.type} at time ${event.time}, ch=${event.channel}, note=${event.note}, status=0x${statusByte.toString(16)}`);
+                }
             } else {
                 trackOffset++;
             }
@@ -161,6 +170,20 @@ export class MidiParser {
         const eventType = statusByte & 0xF0;
         const channel = statusByte & 0x0F;
         
+        
+        // Special handling for system messages
+        if (statusByte === 0xF0 || statusByte === 0xF7) {
+            // System exclusive
+            const sysexLength = this.readVariableLength(view, offset);
+            return {
+                type: 'sysex',
+                time,
+                bytesUsed: sysexLength.bytesRead + sysexLength.value
+            };
+        } else if (statusByte === 0xFF) {
+            // Meta event
+            return this.parseMetaEvent(view, offset, time);
+        }
         
         switch (eventType) {
             case 0x80: // Note Off
@@ -209,18 +232,6 @@ export class MidiParser {
                     bytesUsed: 1
                 };
                 
-            case 0xF0: // System Exclusive
-            case 0xF7: // System Exclusive (continuation)
-                // Read length and skip
-                const sysexLength = this.readVariableLength(view, offset);
-                return {
-                    type: 'sysex',
-                    time,
-                    bytesUsed: sysexLength.bytesRead + sysexLength.value
-                };
-                
-            case 0xFF: // Meta Event
-                return this.parseMetaEvent(view, offset, time);
                 
             default:
                 // Skip unknown events - assume 2 data bytes for channel messages
@@ -383,8 +394,10 @@ export class MidiParser {
         const checksum = this.calculateChecksum(originalBuffer);
         const random = this.createRandom(checksum);
         
-        // Track which instruments are assigned to which channels
-        const channelInstruments = new Map();
+        // Track which instruments are assigned to which track+channel combinations
+        const trackChannelInstruments = new Map();
+        // Track MIDI program changes per channel
+        const channelPrograms = new Map();
         let tempo = 120; // Default tempo
         let timeSignature = { numerator: 4, denominator: 4 };
         
@@ -469,6 +482,16 @@ export class MidiParser {
         console.log(`MIDI Format: ${midiData.format}, Tracks: ${midiData.tracks.length}`);
         console.log(`Tempo: ${tempo}, TicksPerQuarter: ${midiData.ticksPerQuarter}, TimeRange: ${minTime}-${maxTime}, PixelsPerTick: ${pixelsPerTick}`);
         
+        // Debug: Show what tracks contain notes
+        midiData.tracks.forEach((track, i) => {
+            const noteEvents = track.events.filter(e => e.type === 'noteOn');
+            if (noteEvents.length > 0) {
+                console.log(`Track ${i} has ${noteEvents.length} note-on events, first at time ${noteEvents[0].time}`);
+            } else {
+                console.log(`Track ${i} has no note events`);
+            }
+        });
+        
         // For Format 1 MIDI files, track 0 often contains only tempo/time signature
         // so we need to merge all tracks' events and sort by time
         const allEvents = [];
@@ -485,7 +508,11 @@ export class MidiParser {
         
         // Process all events in time order
         allEvents.forEach(event => {
-            if (event.type === 'noteOn') {
+            if (event.type === 'programChange') {
+                // Track program changes per channel
+                channelPrograms.set(event.channel, event.program);
+                console.log(`Program change: Channel ${event.channel} → Program ${event.program} (${this.getMidiInstrumentName(event.program)})`);
+            } else if (event.type === 'noteOn') {
                 // Store note start with track info
                 const key = `${event.trackIndex}-${event.channel}-${event.note}`;
                 activeNotes.set(key, {
@@ -534,27 +561,53 @@ export class MidiParser {
                         const y = (NUM_OCTAVES * NOTES_PER_OCTAVE - 1 - key72) * NOTE_HEIGHT;
                         
                         // Map MIDI velocity (0-127) to our velocity
-                        const velocity = Math.round((noteStart.velocity / 127) * 127);
+                        let velocity = Math.round((noteStart.velocity / 127) * 127);
                         
-                        // Choose instrument based on channel
+                        // Choose instrument and pan based on channel
                         let instrument;
+                        let pan = 0;
                         if (noteStart.channel === 9) {
                             // Channel 10 (9 in 0-based) is drums
                             instrument = 'ORG_D00';
                         } else {
-                            // Assign or get instrument for this channel
-                            if (!channelInstruments.has(noteStart.channel)) {
-                                // Generate a random instrument number (0-99)
-                                const instrumentNum = Math.floor(random() * 100);
+                            // Assign or get instrument for this track+channel combination
+                            const trackChannelKey = `${noteStart.trackIndex}-${noteStart.channel}`;
+                            if (!trackChannelInstruments.has(trackChannelKey)) {
+                                // Check if channel has a program change
+                                const midiProgram = channelPrograms.get(noteStart.channel);
+                                let instrumentNum;
+                                
+                                if (midiProgram !== undefined) {
+                                    // Map MIDI program (0-127) to ORG instrument (0-99)
+                                    // Using modulo to fit into ORG's instrument range
+                                    instrumentNum = midiProgram % 100;
+                                    // Get orchestral pan position
+                                    pan = this.getOrchestralPan(midiProgram);
+                                    // Apply velocity scaling for better balance
+                                    const velocityScale = this.getVelocityScale(midiProgram);
+                                    velocity = Math.min(127, Math.round(velocity * velocityScale));
+                                } else {
+                                    // No program change, use random instrument
+                                    instrumentNum = Math.floor(random() * 100);
+                                    pan = 0; // Center for unknown instruments
+                                }
+                                
                                 const instrumentName = `ORG_M${instrumentNum.toString().padStart(2, '0')}`;
-                                channelInstruments.set(noteStart.channel, instrumentName);
+                                trackChannelInstruments.set(trackChannelKey, instrumentName);
                             }
-                            instrument = channelInstruments.get(noteStart.channel);
+                            instrument = trackChannelInstruments.get(trackChannelKey);
+                            // Still need to get pan and velocity scaling for this instrument
+                            const midiProgram = channelPrograms.get(noteStart.channel);
+                            if (midiProgram !== undefined) {
+                                pan = this.getOrchestralPan(midiProgram);
+                                const velocityScale = this.getVelocityScale(midiProgram);
+                                velocity = Math.min(127, Math.round(velocity * velocityScale));
+                            }
                         }
                         
                         // Log first few notes for debugging
                         if (notes.length < 10) {
-                            console.log(`Note ${notes.length}: Track=${noteStart.trackIndex}, Ch=${noteStart.channel}, MIDI=${noteStart.midiNote}, Time=${noteStart.startTime}→${event.time}, Normalized=${normalizedStartTime}→${normalizedEndTime}, x=${x}, width=${width}`);
+                            console.log(`Note ${notes.length}: Track=${noteStart.trackIndex}, Ch=${noteStart.channel}, MIDI=${noteStart.midiNote}, Vel=${noteStart.velocity}→${velocity}, Time=${noteStart.startTime}→${event.time}, x=${x}, width=${width}`);
                         }
                         
                         notes.push({
@@ -564,12 +617,15 @@ export class MidiParser {
                             height: NOTE_HEIGHT,
                             key: key72,
                             velocity,
-                            pan: 0,
+                            pan,
                             instrument,
                             pipi: 0
                         });
                         
                         activeNotes.delete(key);
+                } else {
+                    // Note-off without matching note-on
+                    console.warn(`Note-off without note-on: Track=${event.trackIndex}, Ch=${event.channel}, Note=${event.note}, Time=${event.time}`);
                     }
                 } else if (event.type === 'timeSignature') {
                     timeSignature = {
@@ -634,17 +690,26 @@ export class MidiParser {
             let totalNotes = 0;
             
             // Count notes per track/channel
+            const channelsUsed = new Set();
             allEvents.forEach(event => {
                 if (event.type === 'noteOn') {
                     const trackKey = `Track${event.trackIndex}_Ch${event.channel}`;
                     notesByTrack[trackKey] = (notesByTrack[trackKey] || 0) + 1;
                     totalNotes++;
+                    channelsUsed.add(event.channel);
                 }
             });
             
             console.log(`MIDI Import Summary:`);
             console.log(`- Total notes: ${notes.length} created from ${totalNotes} note-on events`);
             console.log(`- Notes per track/channel:`, notesByTrack);
+            console.log(`- Channels used:`, Array.from(channelsUsed).sort((a, b) => a - b));
+            
+            // Show instrument assignments
+            console.log(`- Instrument assignments:`);
+            trackChannelInstruments.forEach((instrument, key) => {
+                console.log(`  Track/Channel ${key} → ${instrument}`);
+            });
             console.log(`- Tempo: ${tempo} BPM`);
             console.log(`- Time range: ${minTime}-${maxTime} ticks (first note at ${minTime})`);
             console.log(`- Measures: ${this.calculateMeasures(notes)}`);
@@ -716,14 +781,13 @@ export class MidiParser {
      * Find the actual time range of notes in the MIDI file
      */
     static findTimeRange(tracks) {
-        let minTime = Infinity;
+        let minTime = 0; // Always start from 0 to preserve all notes
         let maxTime = 0;
         let noteCount = 0;
         
         for (const track of tracks) {
             for (const event of track.events) {
                 if (event.type === 'noteOn' || event.type === 'noteOff') {
-                    minTime = Math.min(minTime, event.time);
                     maxTime = Math.max(maxTime, event.time);
                     noteCount++;
                 }
@@ -731,7 +795,7 @@ export class MidiParser {
         }
         
         
-        return { minTime: minTime === Infinity ? 0 : minTime, maxTime };
+        return { minTime, maxTime };
     }
     
     /**
@@ -754,5 +818,224 @@ export class MidiParser {
         const measures = Math.ceil((maxX - PIANO_KEY_WIDTH) / (GRID_WIDTH * BEATS_PER_MEASURE));
         
         return Math.max(4, measures);
+    }
+    
+    /**
+     * Get velocity scaling factor for MIDI instrument
+     * Returns a multiplier to balance instrument volumes
+     */
+    static getVelocityScale(program) {
+        // Accompaniment instruments typically need boosting
+        // Lead/melody instruments may need reduction
+        const scaleMap = {
+            // Pianos - usually lead, slight reduction
+            0: 0.85, 1: 0.85, 2: 0.85, 3: 0.85, 4: 0.85, 5: 0.85, 6: 0.85, 7: 0.85,
+            
+            // Chromatic percussion - accompaniment, boost
+            8: 1.2,    // Celesta
+            9: 1.1,    // Glockenspiel
+            10: 1.2,   // Music Box
+            11: 1.1,   // Vibraphone
+            12: 1.1,   // Marimba
+            13: 1.0,   // Xylophone
+            14: 1.1,   // Tubular Bells
+            15: 1.2,   // Dulcimer
+            
+            // Organs - medium
+            16: 0.9, 17: 0.9, 18: 0.9, 19: 0.9, 20: 0.9, 21: 0.9, 22: 0.9, 23: 0.9,
+            
+            // Guitars - accompaniment, boost
+            24: 1.3, 25: 1.3, 26: 1.3, 27: 1.3, 28: 1.0, 29: 0.9, 30: 0.9, 31: 1.3,
+            
+            // Basses - accompaniment, significant boost
+            32: 1.4, 33: 1.4, 34: 1.4, 35: 1.4, 36: 1.3, 37: 1.3, 38: 1.2, 39: 1.2,
+            
+            // Strings
+            40: 0.9,   // Violin (often lead)
+            41: 1.1,   // Viola (accompaniment)
+            42: 1.0,   // Cello (varies)
+            43: 1.3,   // Contrabass (accompaniment)
+            44: 1.0,   // Tremolo Strings
+            45: 1.2,   // Pizzicato Strings (accompaniment)
+            46: 1.3,   // Orchestral Harp (accompaniment)
+            47: 1.0,   // Timpani
+            
+            // String ensembles - accompaniment
+            48: 1.2, 49: 1.2, 50: 1.1, 51: 1.1,
+            
+            // Choir/Vocals - usually lead
+            52: 0.85, 53: 0.85, 54: 0.85, 55: 0.9,
+            
+            // Brass - often loud already
+            56: 0.8,   // Trumpet
+            57: 0.8,   // Trombone
+            58: 0.85,  // Tuba
+            59: 0.85,  // Muted Trumpet
+            60: 0.9,   // French Horn
+            61: 0.85,  // Brass Section
+            62: 0.85, 63: 0.85,
+            
+            // Woodwinds - often lead
+            64: 0.9, 65: 0.9, 66: 0.9, 67: 0.95,  // Saxophones
+            68: 0.95, 69: 0.95, 70: 1.0, 71: 0.95,  // Double reeds
+            72: 0.9, 73: 0.9, 74: 0.95, 75: 0.95,   // Flutes
+            76: 1.0, 77: 1.0, 78: 1.0, 79: 1.0,
+            
+            // Synth leads - reduce
+            80: 0.8, 81: 0.8, 82: 0.8, 83: 0.8, 84: 0.8, 85: 0.8, 86: 0.8, 87: 0.8,
+            
+            // Synth pads - accompaniment, boost
+            88: 1.2, 89: 1.2, 90: 1.2, 91: 1.2, 92: 1.2, 93: 1.2, 94: 1.2, 95: 1.2,
+            
+            // Default for others
+            96: 1.0, 97: 1.0, 98: 1.0, 99: 1.0, 100: 1.0, 101: 1.0, 102: 1.0, 103: 1.0,
+            104: 1.0, 105: 1.0, 106: 1.0, 107: 1.0, 108: 1.0, 109: 1.0, 110: 1.0, 111: 1.0,
+            112: 1.1, 113: 1.1, 114: 1.1, 115: 1.1, 116: 1.0, 117: 1.0, 118: 1.0, 119: 1.0,
+            120: 1.0, 121: 1.0, 122: 1.0, 123: 1.0, 124: 1.0, 125: 1.0, 126: 1.0, 127: 1.0
+        };
+        
+        return scaleMap[program] || 1.0;
+    }
+    
+    /**
+     * Get orchestral pan position for MIDI instrument
+     * Returns value from -100 to 100 (left to right)
+     */
+    static getOrchestralPan(program) {
+        // Orchestra seating from audience perspective:
+        // Far left: Violins 1, Flutes, Piccolo
+        // Left: Violins 2, Oboes, Clarinets
+        // Center-left: Violas, Bassoons
+        // Center: Conductor, Piano, Harp, Vocals
+        // Center-right: Cellos, Horns
+        // Right: Basses, Trumpets, Trombones
+        // Far right: Timpani, Percussion, Tuba
+        
+        const panMap = {
+            // Pianos - center
+            0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0,
+            
+            // Chromatic percussion - center to right
+            8: 20,    // Celesta
+            9: 40,    // Glockenspiel
+            10: 0,    // Music Box
+            11: 20,   // Vibraphone
+            12: 40,   // Marimba
+            13: 60,   // Xylophone
+            14: 40,   // Tubular Bells
+            15: 20,   // Dulcimer
+            
+            // Organs - center
+            16: 0, 17: 0, 18: 0, 19: 0, 20: 0, 21: 0, 22: 0, 23: 0,
+            
+            // Guitars - center-left
+            24: -20, 25: -20, 26: -20, 27: -20, 28: -20, 29: -20, 30: -20, 31: -20,
+            
+            // Basses - right
+            32: 60, 33: 60, 34: 60, 35: 60, 36: 60, 37: 60, 38: 60, 39: 60,
+            
+            // Strings
+            40: -80,  // Violin (1st violins - far left)
+            41: -40,  // Viola (center-left)
+            42: 40,   // Cello (center-right)
+            43: 60,   // Contrabass (right)
+            44: -60,  // Tremolo Strings
+            45: -20,  // Pizzicato Strings
+            46: 0,    // Orchestral Harp (center)
+            47: 80,   // Timpani (far right)
+            
+            // String ensembles
+            48: -60, 49: -40, 50: -40, 51: -20,
+            
+            // Choir/Vocals - center
+            52: 0, 53: 0, 54: 0, 55: 0,
+            
+            // Brass
+            56: 40,   // Trumpet (right)
+            57: 60,   // Trombone (right)
+            58: 80,   // Tuba (far right)
+            59: 40,   // Muted Trumpet
+            60: 20,   // French Horn (center-right)
+            61: 40,   // Brass Section
+            62: 40, 63: 40,
+            
+            // Saxophones - center-left
+            64: -20, 65: -20, 66: -20, 67: -20,
+            
+            // Double reeds - left
+            68: -60,  // Oboe
+            69: -60,  // English Horn
+            70: -40,  // Bassoon
+            71: -60,  // Clarinet
+            
+            // Flutes - far left
+            72: -80,  // Piccolo
+            73: -80,  // Flute
+            74: -60,  // Recorder
+            75: -60,  // Pan Flute
+            76: -40, 77: -40, 78: -40, 79: -40,
+            
+            // Synth leads - varied
+            80: -20, 81: 20, 82: -20, 83: 20, 84: 0, 85: 0, 86: -20, 87: 20,
+            
+            // Synth pads - wide/center
+            88: 0, 89: 0, 90: 0, 91: 0, 92: 0, 93: 0, 94: 0, 95: 0,
+            
+            // Sound effects - varied
+            96: 0, 97: 0, 98: 0, 99: 0, 100: 0, 101: 0, 102: 0, 103: 0,
+            
+            // Ethnic instruments - varied
+            104: -20, 105: 20, 106: -20, 107: 20, 108: 0, 109: 0, 110: -20, 111: 20,
+            
+            // Percussion - right side
+            112: 60, 113: 60, 114: 60, 115: 60, 116: 80, 117: 80, 118: 80, 119: 80,
+            
+            // Sound effects
+            120: 0, 121: 0, 122: 0, 123: 0, 124: 0, 125: 0, 126: 0, 127: 0
+        };
+        
+        return panMap[program] || 0;
+    }
+    
+    /**
+     * Get MIDI instrument name from program number
+     */
+    static getMidiInstrumentName(program) {
+        const instruments = [
+            "Acoustic Grand Piano", "Bright Acoustic Piano", "Electric Grand Piano", "Honky-tonk Piano",
+            "Electric Piano 1", "Electric Piano 2", "Harpsichord", "Clavi",
+            "Celesta", "Glockenspiel", "Music Box", "Vibraphone",
+            "Marimba", "Xylophone", "Tubular Bells", "Dulcimer",
+            "Drawbar Organ", "Percussive Organ", "Rock Organ", "Church Organ",
+            "Reed Organ", "Accordion", "Harmonica", "Tango Accordion",
+            "Acoustic Guitar (nylon)", "Acoustic Guitar (steel)", "Electric Guitar (jazz)", "Electric Guitar (clean)",
+            "Electric Guitar (muted)", "Overdriven Guitar", "Distortion Guitar", "Guitar harmonics",
+            "Acoustic Bass", "Electric Bass (finger)", "Electric Bass (pick)", "Fretless Bass",
+            "Slap Bass 1", "Slap Bass 2", "Synth Bass 1", "Synth Bass 2",
+            "Violin", "Viola", "Cello", "Contrabass",
+            "Tremolo Strings", "Pizzicato Strings", "Orchestral Harp", "Timpani",
+            "String Ensemble 1", "String Ensemble 2", "SynthStrings 1", "SynthStrings 2",
+            "Choir Aahs", "Voice Oohs", "Synth Voice", "Orchestra Hit",
+            "Trumpet", "Trombone", "Tuba", "Muted Trumpet",
+            "French Horn", "Brass Section", "SynthBrass 1", "SynthBrass 2",
+            "Soprano Sax", "Alto Sax", "Tenor Sax", "Baritone Sax",
+            "Oboe", "English Horn", "Bassoon", "Clarinet",
+            "Piccolo", "Flute", "Recorder", "Pan Flute",
+            "Blown Bottle", "Shakuhachi", "Whistle", "Ocarina",
+            "Lead 1 (square)", "Lead 2 (sawtooth)", "Lead 3 (calliope)", "Lead 4 (chiff)",
+            "Lead 5 (charang)", "Lead 6 (voice)", "Lead 7 (fifths)", "Lead 8 (bass + lead)",
+            "Pad 1 (new age)", "Pad 2 (warm)", "Pad 3 (polysynth)", "Pad 4 (choir)",
+            "Pad 5 (bowed)", "Pad 6 (metallic)", "Pad 7 (halo)", "Pad 8 (sweep)",
+            "FX 1 (rain)", "FX 2 (soundtrack)", "FX 3 (crystal)", "FX 4 (atmosphere)",
+            "FX 5 (brightness)", "FX 6 (goblins)", "FX 7 (echoes)", "FX 8 (sci-fi)",
+            "Sitar", "Banjo", "Shamisen", "Koto",
+            "Kalimba", "Bag pipe", "Fiddle", "Shanai",
+            "Tinkle Bell", "Agogo", "Steel Drums", "Woodblock",
+            "Taiko Drum", "Melodic Tom", "Synth Drum", "Reverse Cymbal",
+            "Guitar Fret Noise", "Breath Noise", "Seashore", "Bird Tweet",
+            "Telephone Ring", "Helicopter", "Applause", "Gunshot"
+        ];
+        
+        return instruments[program] || `Program ${program}`;
     }
 }

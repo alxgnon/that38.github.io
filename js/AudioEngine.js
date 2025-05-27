@@ -30,10 +30,6 @@ export class AudioEngine {
         // Tempo for envelope timing
         this.currentBPM = 120;
         
-        // Default pipi values for instruments
-        // pipi=0 (false) means infinite loop, pipi=1 (true) means finite loops
-        // Most instruments default to infinite loop
-        this.defaultPipi = new Map();
     }
 
     /**
@@ -167,28 +163,18 @@ export class AudioEngine {
                         );
                         const channelData = audioBuffer.getChannelData(0);
                         
-                        let hasSound = false;
-                        let minSample = 127;
-                        let maxSample = -128;
                         for (let i = 0; i < 256; i++) {
                             // Get signed 8-bit sample
                             const sample = this.wavetable[256 * waveIndex + i];
                             // Convert to float (-1 to 1 range)
                             channelData[i] = sample / 128;
-                            if (sample !== 0) hasSound = true;
-                            minSample = Math.min(minSample, sample);
-                            maxSample = Math.max(maxSample, sample);
                         }
-                        
-                        // Check if waveform is silent or very quiet
-                        
-                        
-                        
                         this.loadedSamples.set(sampleName, audioBuffer);
                         return audioBuffer;
                     }
                 }
             } catch (error) {
+                // Silently fall through to WAV loading
             }
         }
         
@@ -277,10 +263,6 @@ export class AudioEngine {
         const authenticVolume = Math.pow(10, ((orgVol - 255) * 8) / 2000);
         
         
-        // Track decay time for pipi=true instruments
-        let noteDecayTime = 0;
-        
-        
         if (isDrum) {
             source.loop = false;
             gain.gain.setValueAtTime(authenticVolume, startTime);
@@ -313,7 +295,6 @@ export class AudioEngine {
                     // Stop immediately when loops complete
                     gain.gain.setValueAtTime(0, startTime + loopDuration);
                     source.stop(startTime + loopDuration);
-                    noteDecayTime = startTime + loopDuration;
                 }
             } else {
                 // pipi=0: loop infinitely
@@ -415,46 +396,47 @@ export class AudioEngine {
     }
 
     /**
+     * Calculate playback rate for drum
+     */
+    calculateDrumPlaybackRate(keyNumber) {
+        const drumKey = Math.round(keyNumber / 6);
+        const clampedKey = Math.max(0, Math.min(255, drumKey));
+        const drumFreq = clampedKey * 800 + 100;
+        return drumFreq / BASE_SAMPLE_RATE;
+    }
+    
+    /**
+     * Calculate playback rate for melodic instrument
+     */
+    calculateMelodicPlaybackRate(keyNumber, freqAdjust = 0) {
+        // Organya constants
+        const BASE_POINT_FREQS = [33408, 35584, 37632, 39808, 42112, 44672, 47488, 50048, 52992, 56320, 59648, 63232];
+        const PERIOD_SIZES = [1024, 512, 256, 128, 64, 32, 16, 8];
+        
+        // Convert 72-EDO to octave and pitch class
+        const octave = Math.floor(keyNumber / NOTES_PER_OCTAVE);
+        const microtonalPosition = keyNumber % NOTES_PER_OCTAVE;
+        const pitchClassIndex = Math.round(microtonalPosition / 6) % 12;
+        
+        // Clamp to valid ranges
+        const clampedOctave = Math.max(0, Math.min(7, octave));
+        const clampedPitchClass = Math.max(0, Math.min(11, pitchClassIndex));
+        
+        // Calculate Organya frequency
+        const pointFrequency = BASE_POINT_FREQS[clampedPitchClass] + freqAdjust;
+        const organyaFreq = pointFrequency / PERIOD_SIZES[clampedOctave];
+        
+        // Convert to playback rate (256 samples per period)
+        return (organyaFreq * 256) / this.audioContext.sampleRate;
+    }
+
+    /**
      * Calculate playback rate
      */
     calculatePlaybackRate(keyNumber, sampleName, isDrum, freqAdjust = 0) {
-        if (isDrum) {
-            const drumKey = Math.round(keyNumber / 6);
-            const clampedKey = Math.max(0, Math.min(255, drumKey));
-            const drumFreq = clampedKey * 800 + 100;
-            return drumFreq / BASE_SAMPLE_RATE;
-        } else {
-            // Organya pitch system implementation
-            // Base point frequencies for each pitch class (C through B)
-            const basePointFreqs = [33408, 35584, 37632, 39808, 42112, 44672, 47488, 50048, 52992, 56320, 59648, 63232];
-            
-            // Period sizes for each octave
-            const periodSizes = [1024, 512, 256, 128, 64, 32, 16, 8];
-            
-            // Extract octave and pitch class from key number
-            const octave = Math.floor(keyNumber / NOTES_PER_OCTAVE);
-            const microtonalPosition = keyNumber % NOTES_PER_OCTAVE;
-            // Round to nearest semitone (6 microtones per semitone in 72-EDO)
-            const pitchClassIndex = Math.round(microtonalPosition / 6) % 12;
-            
-            // Clamp values to valid ranges
-            const clampedOctave = Math.max(0, Math.min(7, octave));
-            const clampedPitchClass = Math.max(0, Math.min(11, pitchClassIndex));
-            
-            // Calculate point frequency with freq adjustment
-            // freqAdjust is already (pitch - 1000) from OrgParser
-            const pointFrequency = basePointFreqs[clampedPitchClass] + freqAdjust;
-            
-            // Calculate actual frequency using period size
-            const organyaFreq = pointFrequency / periodSizes[clampedOctave];
-            
-            // The wavetable samples are 256 samples at the base sample rate
-            // We need to calculate the playback rate to achieve the target frequency
-            // organyaFreq is in Hz (periods per second)
-            // For a 256-sample waveform, one period at playback rate 1.0 takes 256/sampleRate seconds
-            // To get organyaFreq Hz, we need: playbackRate = organyaFreq * 256 / sampleRate
-            return (organyaFreq * 256) / this.audioContext.sampleRate;
-        }
+        return isDrum 
+            ? this.calculateDrumPlaybackRate(keyNumber)
+            : this.calculateMelodicPlaybackRate(keyNumber, freqAdjust);
     }
 
     /**
@@ -463,43 +445,34 @@ export class AudioEngine {
      */
     stopNote(keyNumber) {
         const note = this.activeNotes.get(keyNumber);
-        if (note) {
-            // Immediately remove from active notes
-            this.activeNotes.delete(keyNumber);
+        if (!note) return;
+        
+        // Remove from active notes
+        this.activeNotes.delete(keyNumber);
+        
+        try {
+            const stopTime = this.audioContext.currentTime + AUDIO_STOP_DELAY;
+            note.source.stop(stopTime);
+            note.gain.gain.setValueAtTime(0, stopTime);
             
-            try {
-                const now = this.audioContext.currentTime;
-                
-                if (note.isDrum) {
-                    // Drums stop immediately
-                    note.source.stop(now + AUDIO_STOP_DELAY);
-                    note.gain.gain.setValueAtTime(0, now + AUDIO_STOP_DELAY);
-                } else {
-                    // Stop melodic instruments immediately
-                    note.source.stop(now + AUDIO_STOP_DELAY);
-                    note.gain.gain.setValueAtTime(0, now + AUDIO_STOP_DELAY);
-                }
-                
-                // Ensure cleanup happens
-                setTimeout(() => {
-                    try {
-                        note.source.disconnect();
-                        note.gain.disconnect();
-                        note.panner.disconnect();
-                    } catch (e) {
-                        // Node might already be disconnected
-                    }
-                }, 50);
-            } catch (e) {
-                // Force cleanup on error
-                try {
-                    note.source.disconnect();
-                    note.gain.disconnect();
-                    note.panner.disconnect();
-                } catch (disconnectError) {
-                    // Node might already be disconnected
-                }
-            }
+            // Schedule cleanup
+            setTimeout(() => this.cleanupNote(note), 50);
+        } catch (e) {
+            // Force cleanup on error
+            this.cleanupNote(note);
+        }
+    }
+    
+    /**
+     * Clean up audio nodes
+     */
+    cleanupNote(note) {
+        try {
+            note.source.disconnect();
+            note.gain.disconnect();
+            note.panner.disconnect();
+        } catch (e) {
+            // Already disconnected
         }
     }
 

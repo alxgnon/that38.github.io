@@ -209,8 +209,6 @@ export class OrgParser {
             
             // Process notes with volume automation
             const processedNotes = this.processVolumeAutomation(track.notes, instrument, instrumentName, pixelsPerTick);
-            
-            
             notes.push(...processedNotes);
         });
         

@@ -176,7 +176,7 @@ export class VelocityBar {
             if (isSelected) {
                 color = '#ffa500';  // Keep orange for selected notes, even when dragging
             } else if (isDragging) {
-                color = '#4a9eff';
+                color = '#ff8800';  // Orange when dragging
             } else if (isHovered) {
                 // Brighten the instrument color slightly for hover
                 color = this.adjustBrightness(instrumentColor.note, 20);

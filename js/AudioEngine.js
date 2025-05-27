@@ -312,10 +312,8 @@ export class AudioEngine {
                 
                 // Only cut off if loops complete before note duration
                 if (loopDuration < duration) {
-                    // Schedule a quick fade and stop
-                    const fadeTime = 0.01; // 10ms fade
-                    gain.gain.setValueAtTime(authenticVolume, startTime + loopDuration - fadeTime);
-                    gain.gain.exponentialRampToValueAtTime(0.001, startTime + loopDuration);
+                    // Stop immediately when loops complete
+                    gain.gain.setValueAtTime(0, startTime + loopDuration);
                     source.stop(startTime + loopDuration);
                     noteDecayTime = startTime + loopDuration;
                 }
@@ -324,13 +322,8 @@ export class AudioEngine {
                 source.loop = true;
             }
             
-            // Simple attack to prevent clicks
-            if (duration > 0 && duration < 0.05) {
-                gain.gain.setValueAtTime(authenticVolume, startTime);
-            } else {
-                gain.gain.setValueAtTime(0, startTime);
-                gain.gain.linearRampToValueAtTime(authenticVolume, startTime + 0.002);
-            }
+            // Set volume immediately
+            gain.gain.setValueAtTime(authenticVolume, startTime);
             
             // Apply volume automation if provided
             if (volumeAutomation && volumeAutomation.length > 0) {
@@ -374,39 +367,12 @@ export class AudioEngine {
         source.start(startTime);
         
         // Schedule stop if duration provided
-        if (duration > 0) {
+        if (duration > 0 && !isDrum) {
             const stopTime = startTime + duration;
             
-            if (isDrum) {
-                // Let drums play out naturally
-            } else {
-                // Schedule note off with release envelope
-                // Use very short release to prevent clicks but keep it subtle
-                const releaseTime = Math.min(0.01, duration * 0.1); // Max 10ms or 10% of note duration
-                
-                // Ensure we have enough time for the release
-                if (stopTime - releaseTime > startTime + 0.002) {
-                    // Don't apply release if note has already decayed
-                    if (noteDecayTime === 0 || stopTime < noteDecayTime) {
-                        // Cancel any scheduled changes and set current value
-                        gain.gain.cancelScheduledValues(stopTime - releaseTime);
-                        gain.gain.setValueAtTime(gain.gain.value, stopTime - releaseTime);
-                        
-                        // Release envelope
-                        gain.gain.exponentialRampToValueAtTime(0.001, stopTime);
-                    }
-                    
-                    // Stop the source after release (unless it already self-stopped)
-                    if (noteDecayTime === 0 || stopTime < noteDecayTime) {
-                        source.stop(stopTime + releaseTime);
-                    }
-                } else {
-                    // Note too short for release envelope, just stop (unless it already self-stopped)
-                    if (noteDecayTime === 0 || stopTime < noteDecayTime) {
-                        source.stop(stopTime);
-                    }
-                }
-            }
+            // Stop immediately at scheduled time (only for melodic instruments)
+            source.stop(stopTime);
+            gain.gain.setValueAtTime(0, stopTime);
             
             // Return noteData for tracking
             return { source, gain, panner, isDrum, keyNumber, stopTime };
@@ -490,12 +456,9 @@ export class AudioEngine {
                     note.source.stop(now + AUDIO_STOP_DELAY);
                     note.gain.gain.setValueAtTime(0, now + AUDIO_STOP_DELAY);
                 } else {
-                    // Melodic instruments use very short release to maintain articulation
-                    const releaseTime = 0.005; // 5ms release for sharper cutoff
-                    note.gain.gain.cancelScheduledValues(now);
-                    note.gain.gain.setValueAtTime(note.gain.gain.value, now);
-                    note.gain.gain.linearRampToValueAtTime(0, now + releaseTime);
-                    note.source.stop(now + releaseTime + AUDIO_STOP_DELAY);
+                    // Stop melodic instruments immediately
+                    note.source.stop(now + AUDIO_STOP_DELAY);
+                    note.gain.gain.setValueAtTime(0, now + AUDIO_STOP_DELAY);
                 }
                 
                 // Ensure cleanup happens

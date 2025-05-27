@@ -97,6 +97,7 @@ function setupControls() {
         loopBtn.classList.toggle('active', pianoRoll.loopEnabled);
     });
     
+    
     // Loop range inputs
     const loopStartInput = document.getElementById('loopStartInput');
     const loopEndInput = document.getElementById('loopEndInput');
@@ -441,6 +442,76 @@ function handleDelete() {
 function handleSelectAll() {
     pianoRoll.noteManager.selectAll();
     pianoRoll.dirty = true;
+}
+
+/**
+ * Show mobile songs menu
+ */
+function showMobileSongsMenu() {
+    // Get current instrument from the selector
+    const currentInstrument = document.getElementById('instrumentSelector').value;
+    
+    const songCategories = `
+<div class="mobile-songs-menu">
+    <button class="song-category-btn" data-org="songs/Pixel/all/">Cave Story (All Songs)</button>
+    <button class="song-category-btn" data-midi-dir="songs/classical/">Classical Music</button>
+    <div class="separator"></div>
+    <h3>Quick Access</h3>
+    <button class="song-quick-btn" data-org="songs/Pixel/all/Cave Story.org">Cave Story</button>
+    <button class="song-quick-btn" data-org="songs/Pixel/all/Labyrinth Fight.org">Labyrinth Fight</button>
+    <button class="song-quick-btn" data-org="songs/Pixel/all/Mischievous Robot.org">Mischievous Robot</button>
+    <button class="song-quick-btn" data-org="songs/Pixel/all/Moonsong.org">Moonsong</button>
+    <button class="song-quick-btn" data-org="songs/Pixel/all/Running Hell.org">Running Hell</button>
+    <button class="song-quick-btn" data-org="songs/Pixel/all/Torokos Theme.org">Torokos Theme</button>
+    <button class="song-quick-btn" data-org="songs/Pixel/all/White.org">White</button>
+    <button class="song-quick-btn" data-org="songs/Pixel/all/Wind Fortress.org">Wind Fortress</button>
+    <div class="separator"></div>
+    <h3>Voice</h3>
+    <select id="mobileInstrumentSelector" class="mobile-instrument-select">
+        ${Array.from(document.getElementById('instrumentSelector').options).map(option => 
+            `<option value="${option.value}" ${option.value === currentInstrument ? 'selected' : ''}>${option.text}</option>`
+        ).join('')}
+    </select>
+</div>`;
+    
+    modalManager.show('infoModal', {
+        title: 'Songs & Voice',
+        content: songCategories
+    });
+    
+    // Add event listeners to buttons
+    setTimeout(() => {
+        document.querySelectorAll('.song-category-btn').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                const orgPath = e.target.getAttribute('data-org');
+                const midiPath = e.target.getAttribute('data-midi-dir');
+                modalManager.close('infoModal');
+                if (orgPath) {
+                    await showSongDirectory(orgPath, false);
+                } else if (midiPath) {
+                    await showSongDirectory(midiPath, true);
+                }
+            });
+        });
+        
+        document.querySelectorAll('.song-quick-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const orgPath = e.target.getAttribute('data-org');
+                modalManager.close('infoModal');
+                loadOrgFromPath(orgPath);
+            });
+        });
+        
+        // Add event listener for mobile instrument selector
+        const mobileInstrumentSelector = document.getElementById('mobileInstrumentSelector');
+        if (mobileInstrumentSelector) {
+            mobileInstrumentSelector.addEventListener('change', (e) => {
+                const mainSelector = document.getElementById('instrumentSelector');
+                mainSelector.value = e.target.value;
+                mainSelector.dispatchEvent(new Event('change'));
+            });
+        }
+    }, 100);
 }
 
 /**

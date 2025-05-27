@@ -73,7 +73,8 @@ canvas {
 }
 
 .control-spacer {
-    display: none; /* Remove spacer to keep everything left-aligned */
+    flex: 1;
+    min-width: 20px;
 }
 
 .control-group.loop {
@@ -609,6 +610,68 @@ select:hover {
     animation: slideOut 0.3s ease-in;
 }
 
+/* Mobile songs menu */
+.mobile-songs-menu {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.song-category-btn,
+.song-quick-btn {
+    width: 100%;
+    padding: 12px 20px;
+    background: #2a2a2a;
+    color: #fff;
+    border: 1px solid #444;
+    border-radius: 4px;
+    text-align: left;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.song-category-btn:hover,
+.song-quick-btn:hover {
+    background: #3a3a3a;
+    border-color: #555;
+}
+
+.song-category-btn {
+    background: #333;
+    font-weight: bold;
+}
+
+.mobile-songs-menu .separator {
+    height: 1px;
+    background: #444;
+    margin: 10px 0;
+}
+
+.mobile-songs-menu h3 {
+    margin: 10px 0 5px 0;
+    font-size: 12px;
+    color: #999;
+    text-transform: uppercase;
+}
+
+.mobile-instrument-select {
+    width: 100%;
+    padding: 10px;
+    background: #2a2a2a;
+    border: 1px solid #444;
+    color: #fff;
+    border-radius: 4px;
+    font-size: 14px;
+    cursor: pointer;
+    margin-top: 5px;
+}
+
+.mobile-instrument-select:hover {
+    background: #333;
+    border-color: #4a9eff;
+}
+
 /* Info modal for About and Shortcuts */
 .info-modal {
     white-space: normal;
@@ -887,25 +950,50 @@ select:hover {
     }
 }
 
+/* Hide mobile-only elements on desktop */
+.mobile-only {
+    display: none;
+}
+
 /* Mobile responsive styles */
 @media (max-width: 768px) {
-    /* Hide menu bar on mobile to save space */
+    /* Make menu bar more compact on mobile */
     #menubar {
+        height: 32px;
+        font-size: 12px;
+        flex-wrap: wrap;
+    }
+    
+    .menu-item {
+        padding: 0 8px;
+        height: 32px;
+    }
+    
+    /* Hide less important menu items on mobile */
+    .menu-item[data-menu="edit"],
+    .menu-item[data-menu="view"],
+    .menu-item[data-menu="tools"],
+    .menu-item[data-menu="help"] {
         display: none;
     }
     
     /* Make controls more compact on mobile */
     #controls {
-        flex-wrap: wrap;
+        flex-wrap: nowrap;
         height: auto;
         padding: 5px;
         gap: 5px;
+        overflow-x: auto;
     }
     
-    /* Smaller title on mobile */
+    /* Hide spacer on mobile */
+    .control-spacer {
+        display: none;
+    }
+    
+    /* Hide title on mobile to save space */
     h1 {
-        font-size: 12px;
-        padding-right: 5px;
+        display: none;
     }
     
     /* Compact control groups */
@@ -946,9 +1034,10 @@ select:hover {
         font-size: 10px;
     }
     
-    /* Hide velocity bar on mobile */
-    #velocity-bar {
-        display: none;
+    /* Make bars more compact on mobile */
+    #velocity-bar,
+    #pan-bar {
+        height: 40px; /* Reduced from 60px */
     }
     
     /* Adjust layout for mobile */
@@ -961,5 +1050,12 @@ select:hover {
     #canvas-container {
         flex: 1;
         min-height: 0;
+        /* Account for menu bar, controls, pan bar, and velocity bar */
+        height: calc(100vh - 32px - 44px - 40px - 40px);
+    }
+    
+    /* Show mobile-only elements */
+    .mobile-only {
+        display: flex !important;
     }
 }

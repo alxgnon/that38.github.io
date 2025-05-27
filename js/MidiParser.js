@@ -39,6 +39,20 @@ export class MidiParser {
             if (track.events.length > 0) {
                 console.log(`Track ${i}: ${track.events.length} events, first 3 times:`, 
                     track.events.slice(0, 3).map(e => ({ type: e.type, time: e.time })));
+                
+                // Count note events
+                const noteEvents = track.events.filter(e => e.type === 'noteOn' || e.type === 'noteOff');
+                if (noteEvents.length > 0) {
+                    console.log(`  - Contains ${noteEvents.length} note events`);
+                } else {
+                    console.log(`  - No note events found in this track`);
+                    // Show what types of events are in this track
+                    const eventTypes = {};
+                    track.events.forEach(e => {
+                        eventTypes[e.type] = (eventTypes[e.type] || 0) + 1;
+                    });
+                    console.log(`  - Event types in track:`, eventTypes);
+                }
             }
         }
         
@@ -172,6 +186,10 @@ export class MidiParser {
                 if (noteNum > 127) {
                     console.warn(`Invalid MIDI note number: ${noteNum}`);
                     return null;
+                }
+                // Debug problematic files
+                if (velocity > 0 && time === 0) {
+                    console.log(`Note On at time 0: ch=${channel}, note=${noteNum}, vel=${velocity}`);
                 }
                 return {
                     type: velocity === 0 ? 'noteOff' : 'noteOn',

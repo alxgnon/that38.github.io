@@ -57,7 +57,24 @@ export class MidiParser {
         const chunkSize = view.getUint32(offset + 4, false);
         const format = view.getUint16(offset + 8, false);
         const trackCount = view.getUint16(offset + 10, false);
-        const ticksPerQuarter = view.getUint16(offset + 12, false);
+        const division = view.getUint16(offset + 12, false);
+        
+        // Check if using SMPTE time division
+        let ticksPerQuarter;
+        if (division & 0x8000) {
+            // SMPTE format - not commonly used, treat as 480 ticks per quarter
+            console.warn('MIDI file uses SMPTE time division, converting to ticks per quarter');
+            ticksPerQuarter = 480;
+        } else {
+            // Ticks per quarter note
+            ticksPerQuarter = division;
+            
+            // Sanity check - common values are 96, 120, 192, 384, 480, 960
+            if (ticksPerQuarter === 0 || ticksPerQuarter > 10000) {
+                console.warn(`Unusual ticks per quarter: ${ticksPerQuarter}, using default 480`);
+                ticksPerQuarter = 480;
+            }
+        }
         
         return { format, trackCount, ticksPerQuarter };
     }
@@ -298,22 +315,43 @@ export class MidiParser {
         let tempo = 120; // Default tempo
         let timeSignature = { numerator: 4, denominator: 4 };
         
-        // Collect all tempo changes from all tracks (usually in track 0 for format 1)
+        // Collect all tempo and time signature changes from all tracks
         const tempoChanges = [];
+        const timeSignatures = [];
+        
         for (const track of midiData.tracks) {
             track.events.forEach(event => {
                 if (event.type === 'setTempo') {
                     tempoChanges.push({ time: event.time, tempo: event.tempo });
+                } else if (event.type === 'timeSignature') {
+                    timeSignatures.push({ 
+                        time: event.time, 
+                        numerator: event.numerator, 
+                        denominator: event.denominator 
+                    });
                 }
             });
         }
         
-        // Sort tempo changes by time
+        // Sort by time
         tempoChanges.sort((a, b) => a.time - b.time);
+        timeSignatures.sort((a, b) => a.time - b.time);
         
         // Use the first tempo if available
         if (tempoChanges.length > 0) {
             tempo = tempoChanges[0].tempo;
+            console.log(`Found ${tempoChanges.length} tempo change(s), using initial tempo: ${tempo} BPM`);
+        } else {
+            console.warn('No tempo found in MIDI file, using default 120 BPM');
+        }
+        
+        // Use the first time signature if available
+        if (timeSignatures.length > 0) {
+            timeSignature = {
+                numerator: timeSignatures[0].numerator,
+                denominator: timeSignatures[0].denominator
+            };
+            console.log(`Found time signature: ${timeSignature.numerator}/${timeSignature.denominator}`);
         }
         
         // Find the actual time range of the MIDI file
@@ -322,20 +360,38 @@ export class MidiParser {
         
         // Calculate how many measures we need for the entire song
         const ticksPerBeat = midiData.ticksPerQuarter;
-        const ticksPerMeasure = ticksPerBeat * BEATS_PER_MEASURE;
-        const measuresNeeded = Math.ceil(timeRange / ticksPerMeasure);
+        // Use the actual time signature from the MIDI file
+        const beatsPerMeasure = timeSignature.numerator;
+        const ticksPerMeasure = ticksPerBeat * beatsPerMeasure;
+        let measuresNeeded = Math.ceil(timeRange / ticksPerMeasure);
         
-        // Calculate scaling factor to fit within our max measures if needed
-        let scaleFactor = 1;
-        const maxMeasures = TOTAL_MEASURES; // 128 measures
-        if (measuresNeeded > maxMeasures) {
-            scaleFactor = maxMeasures / measuresNeeded;
-            console.log(`MIDI file has ${measuresNeeded} measures, scaling to fit in ${maxMeasures} measures`);
+        console.log(`Ticks per beat: ${ticksPerBeat}, Beats per measure: ${beatsPerMeasure}, Ticks per measure: ${ticksPerMeasure}`);
+        
+        // Sanity check for measures
+        if (measuresNeeded === 0 || !isFinite(measuresNeeded)) {
+            console.warn(`Invalid measures calculated: ${measuresNeeded}, defaulting to 16`);
+            measuresNeeded = 16;
         }
         
-        // Calculate pixels per tick with scaling
-        const basePixelsPerTick = this.calculatePixelsPerTick(tempo, midiData.ticksPerQuarter);
-        const pixelsPerTick = basePixelsPerTick * scaleFactor;
+        // Don't auto-scale MIDI files - let them use their natural timing
+        // Users can manually adjust if needed
+        let scaleFactor = 1;
+        
+        // Only warn if the file is very long
+        const maxMeasures = TOTAL_MEASURES; // 128 measures
+        if (measuresNeeded > maxMeasures) {
+            console.warn(`MIDI file has ${measuresNeeded} measures, which exceeds the ${maxMeasures} measure limit. Notes beyond measure ${maxMeasures} may not be visible.`);
+        }
+        
+        // Calculate pixels per tick
+        const pixelsPerTick = this.calculatePixelsPerTick(tempo, midiData.ticksPerQuarter);
+        
+        // Log if the time range seems unusual
+        if (timeRange === 0) {
+            console.warn(`Time range is 0 - all notes at the same time?`);
+        } else if (timeRange > 1000000) {
+            console.warn(`Very large time range detected: ${timeRange} ticks`);
+        }
         
         console.log(`MIDI Format: ${midiData.format}, Tracks: ${midiData.tracks.length}`);
         console.log(`Tempo: ${tempo}, TicksPerQuarter: ${midiData.ticksPerQuarter}, TimeRange: ${minTime}-${maxTime}, PixelsPerTick: ${pixelsPerTick}`);
@@ -382,13 +438,23 @@ export class MidiParser {
                         const normalizedStartTime = noteStart.startTime - minTime;
                         const normalizedEndTime = event.time - minTime;
                         
-                        const rawX = PIANO_KEY_WIDTH + (normalizedStartTime * pixelsPerTick);
-                        const rawEndX = PIANO_KEY_WIDTH + (normalizedEndTime * pixelsPerTick);
+                        // For display purposes, we need to map to our 4/4 grid
+                        // But preserve the actual timing relationships
+                        const displayPixelsPerTick = GRID_WIDTH / midiData.ticksPerQuarter;
+                        
+                        const rawX = PIANO_KEY_WIDTH + (normalizedStartTime * displayPixelsPerTick);
+                        const rawEndX = PIANO_KEY_WIDTH + (normalizedEndTime * displayPixelsPerTick);
                         
                         // Snap to grid
                         const x = this.snapToGrid(rawX);
-                        const endX = this.snapToGrid(rawEndX);
-                        const width = Math.max(GRID_WIDTH / GRID_SUBDIVISIONS, endX - x);
+                        let endX = this.snapToGrid(rawEndX);
+                        
+                        // Ensure minimum width
+                        const minWidth = GRID_WIDTH / GRID_SUBDIVISIONS;
+                        if (endX - x < minWidth) {
+                            endX = x + minWidth;
+                        }
+                        const width = endX - x;
                         
                         const y = (NUM_OCTAVES * NOTES_PER_OCTAVE - 1 - key72) * NOTE_HEIGHT;
                         
@@ -412,8 +478,8 @@ export class MidiParser {
                         }
                         
                         // Log first few notes for debugging
-                        if (notes.length < 5) {
-                            console.log(`Note ${notes.length}: MIDI note=${noteStart.midiNote}→${shiftedMidiNote}, key72=${key72}, normalizedStart=${normalizedStartTime}, normalizedEnd=${normalizedEndTime}, x=${x}, y=${y}, width=${width}`);
+                        if (notes.length < 10) {
+                            console.log(`Note ${notes.length}: Track=${noteStart.trackIndex}, Ch=${noteStart.channel}, MIDI=${noteStart.midiNote}, Time=${noteStart.startTime}→${event.time}, Normalized=${normalizedStartTime}→${normalizedEndTime}, x=${x}, width=${width}`);
                         }
                         
                         notes.push({
@@ -437,6 +503,73 @@ export class MidiParser {
                     };
                 }
         });
+        
+        // Handle any remaining active notes (orphaned note-ons)
+        if (activeNotes.size > 0) {
+            console.warn(`Found ${activeNotes.size} notes without note-off events`);
+            // Add these notes with a reasonable default duration
+            const defaultDuration = ticksPerBeat; // 1 beat duration
+            
+            activeNotes.forEach((noteStart, key) => {
+                const endTime = noteStart.startTime + defaultDuration;
+                
+                // Convert MIDI note to 72-EDO with optional octave shift
+                const shiftedMidiNote = noteStart.midiNote + (octaveShift * 12);
+                const key72 = this.midiNoteTo72edo(shiftedMidiNote);
+                
+                // Calculate positions
+                const normalizedStartTime = noteStart.startTime - minTime;
+                const normalizedEndTime = endTime - minTime;
+                
+                const rawX = PIANO_KEY_WIDTH + (normalizedStartTime * pixelsPerTick);
+                const rawEndX = PIANO_KEY_WIDTH + (normalizedEndTime * pixelsPerTick);
+                
+                // Snap to grid
+                const x = this.snapToGrid(rawX);
+                const endX = this.snapToGrid(rawEndX);
+                const width = Math.max(GRID_WIDTH / GRID_SUBDIVISIONS, endX - x);
+                
+                const y = (NUM_OCTAVES * NOTES_PER_OCTAVE - 1 - key72) * NOTE_HEIGHT;
+                
+                notes.push({
+                    x,
+                    y,
+                    width,
+                    height: NOTE_HEIGHT,
+                    key: key72,
+                    velocity: noteStart.velocity,
+                    pan: 0,
+                    instrument: noteStart.channel === 9 ? 'ORG_D00' : 
+                               (channelInstruments.get(noteStart.channel) || 'ORG_M00'),
+                    pipi: 0
+                });
+            });
+        }
+        
+        // Sort notes by start position for better display
+        notes.sort((a, b) => a.x - b.x);
+        
+        // Log timing statistics
+        if (notes.length > 0) {
+            const notesByTrack = {};
+            let totalNotes = 0;
+            
+            // Count notes per track/channel
+            allEvents.forEach(event => {
+                if (event.type === 'noteOn') {
+                    const trackKey = `Track${event.trackIndex}_Ch${event.channel}`;
+                    notesByTrack[trackKey] = (notesByTrack[trackKey] || 0) + 1;
+                    totalNotes++;
+                }
+            });
+            
+            console.log(`MIDI Import Summary:`);
+            console.log(`- Total notes: ${notes.length} created from ${totalNotes} note-on events`);
+            console.log(`- Notes per track/channel:`, notesByTrack);
+            console.log(`- Tempo: ${tempo} BPM`);
+            console.log(`- Time range: ${minTime}-${maxTime} ticks`);
+            console.log(`- Measures: ${this.calculateMeasures(notes)}`);
+        }
         
         return {
             notes,
@@ -524,7 +657,9 @@ export class MidiParser {
      */
     static snapToGrid(x) {
         const subdivisionWidth = GRID_WIDTH / GRID_SUBDIVISIONS;
-        return Math.round((x - PIANO_KEY_WIDTH) / subdivisionWidth) * subdivisionWidth + PIANO_KEY_WIDTH;
+        // Round to nearest grid position
+        const gridUnits = Math.round((x - PIANO_KEY_WIDTH) / subdivisionWidth);
+        return gridUnits * subdivisionWidth + PIANO_KEY_WIDTH;
     }
     
     /**

@@ -34,6 +34,12 @@ export class MidiParser {
             const track = this.readTrackChunk(view, offset);
             tracks.push(track);
             offset += track.chunkSize + 8; // Track data + chunk header
+            
+            // Debug: Log first few events from each track
+            if (track.events.length > 0) {
+                console.log(`Track ${i}: ${track.events.length} events, first 3 times:`, 
+                    track.events.slice(0, 3).map(e => ({ type: e.type, time: e.time })));
+            }
         }
         
         return {
@@ -415,7 +421,9 @@ export class MidiParser {
         
         // Find the actual time range of the MIDI file
         const { minTime, maxTime } = this.findTimeRange(midiData.tracks);
-        const timeRange = maxTime - minTime;
+        // Don't normalize by minTime - preserve the initial silence
+        const normalizedMinTime = 0; // Always start from 0 to preserve timing
+        const timeRange = maxTime - normalizedMinTime;
         
         // Calculate how many measures we need for the entire song
         const ticksPerBeat = midiData.ticksPerQuarter;
@@ -493,13 +501,15 @@ export class MidiParser {
                         const key72 = this.midiNoteTo72edo(shiftedMidiNote);
                         
                         // Calculate positions using pre-calculated pixelsPerTick
-                        // Normalize times by subtracting minTime to start at measure 0
-                        const normalizedStartTime = noteStart.startTime - minTime;
-                        const normalizedEndTime = event.time - minTime;
+                        // Don't normalize - preserve actual timing from start of file
+                        const normalizedStartTime = noteStart.startTime;
+                        const normalizedEndTime = event.time;
                         
                         // For display purposes, we need to map to our 4/4 grid
                         // But preserve the actual timing relationships
-                        const displayPixelsPerTick = GRID_WIDTH / midiData.ticksPerQuarter;
+                        // GRID_WIDTH is for 1/16th note, so a quarter note is 4 * GRID_WIDTH
+                        const pixelsPerQuarterNote = GRID_WIDTH * 4; // 4 subdivisions per beat
+                        const displayPixelsPerTick = pixelsPerQuarterNote / midiData.ticksPerQuarter;
                         
                         const rawX = PIANO_KEY_WIDTH + (normalizedStartTime * displayPixelsPerTick);
                         const rawEndX = PIANO_KEY_WIDTH + (normalizedEndTime * displayPixelsPerTick);
@@ -576,12 +586,16 @@ export class MidiParser {
                 const shiftedMidiNote = noteStart.midiNote + (octaveShift * 12);
                 const key72 = this.midiNoteTo72edo(shiftedMidiNote);
                 
-                // Calculate positions
-                const normalizedStartTime = noteStart.startTime - minTime;
-                const normalizedEndTime = endTime - minTime;
+                // Calculate positions - don't normalize, preserve actual timing
+                const normalizedStartTime = noteStart.startTime;
+                const normalizedEndTime = endTime;
                 
-                const rawX = PIANO_KEY_WIDTH + (normalizedStartTime * pixelsPerTick);
-                const rawEndX = PIANO_KEY_WIDTH + (normalizedEndTime * pixelsPerTick);
+                // Use the same calculation as regular notes
+                const pixelsPerQuarterNote = GRID_WIDTH * 4; // 4 subdivisions per beat
+                const displayPixelsPerTick = pixelsPerQuarterNote / midiData.ticksPerQuarter;
+                
+                const rawX = PIANO_KEY_WIDTH + (normalizedStartTime * displayPixelsPerTick);
+                const rawEndX = PIANO_KEY_WIDTH + (normalizedEndTime * displayPixelsPerTick);
                 
                 // Snap to grid
                 const x = this.snapToGrid(rawX);
@@ -626,7 +640,7 @@ export class MidiParser {
             console.log(`- Total notes: ${notes.length} created from ${totalNotes} note-on events`);
             console.log(`- Notes per track/channel:`, notesByTrack);
             console.log(`- Tempo: ${tempo} BPM`);
-            console.log(`- Time range: ${minTime}-${maxTime} ticks`);
+            console.log(`- Time range: ${minTime}-${maxTime} ticks (first note at ${minTime})`);
             console.log(`- Measures: ${this.calculateMeasures(notes)}`);
         }
         
@@ -681,12 +695,12 @@ export class MidiParser {
         // In MIDI, ticks are absolute time units
         // We need to convert to our grid system which is tempo-independent
         
-        // Our grid: GRID_WIDTH pixels = 1 beat
+        // Our grid: GRID_WIDTH pixels = 1 subdivision = 1/4 beat
         // MIDI: ticksPerQuarter ticks = 1 beat
         
         // For consistent timing, we use a fixed tempo mapping
         // This ensures notes align to our grid regardless of MIDI tempo
-        const pixelsPerBeat = GRID_WIDTH;
+        const pixelsPerBeat = GRID_WIDTH * 4; // 4 subdivisions per beat
         const pixelsPerTick = pixelsPerBeat / ticksPerQuarter;
         
         return pixelsPerTick;
@@ -698,15 +712,19 @@ export class MidiParser {
     static findTimeRange(tracks) {
         let minTime = Infinity;
         let maxTime = 0;
+        let noteCount = 0;
         
         for (const track of tracks) {
             for (const event of track.events) {
                 if (event.type === 'noteOn' || event.type === 'noteOff') {
                     minTime = Math.min(minTime, event.time);
                     maxTime = Math.max(maxTime, event.time);
+                    noteCount++;
                 }
             }
         }
+        
+        console.log(`findTimeRange: found ${noteCount} note events`);
         
         return { minTime: minTime === Infinity ? 0 : minTime, maxTime };
     }

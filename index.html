@@ -4,103 +4,104 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>that72.org</title>
-    <link rel="stylesheet" href="css/styles.css?v=20250527122013">
+    <link rel="stylesheet" href="css/styles.css?v=20250527112933">
 </head>
 <body>
-    <div id="menubar">
-        <div class="menu-item" data-menu="file">
-            <span>File</span>
-            <div class="menu-dropdown">
-                <div class="menu-option" id="menu-new">New</div>
-                <div class="menu-option" id="menu-open">Open...</div>
-                <div class="menu-option" id="menu-save">Save</div>
-                <div class="menu-option" id="menu-save-as">Save As...</div>
-                <div class="menu-separator"></div>
-                <div class="menu-option" id="menu-import-org">Import Org Maker (.org)...</div>
-                <div class="menu-option" id="menu-import-midi">Import MIDI (.mid)...</div>
-                <div class="menu-separator"></div>
-                <div class="menu-option has-submenu">
-                    <span>Sample Songs</span>
-                    <span class="submenu-arrow">▶</span>
-                    <div class="menu-submenu">
-                        <div class="menu-option" data-midi-dir="songs/classical/">Classical Music...</div>
-                        <div class="menu-option" data-org="songs/Pixel/all/">Cave Story (All Songs)...</div>
-                        <div class="menu-option" data-org="songs/Pixel/allbeta/">Cave Story (Beta)...</div>
-                        <div class="menu-separator"></div>
-                        <div class="menu-option" data-org="songs/Pixel/wanpaku.org">Wanpaku</div>
-                        <div class="menu-option" data-org="songs/Pixel/all/Running Hell.org">Running Hell</div>
-                        <div class="menu-option" data-org="songs/Pixel/maimai.org">Mai Mai</div>
-                        <div class="menu-option" data-org="songs/Pixel/snowfalling.org">Snow Falling</div>
-                        <div class="menu-option" data-org="songs/Pixel/town0.org">Town</div>
-                        <div class="menu-option" data-org="songs/Pixel/happy00.org">Happy</div>
+    <div id="container">
+        <div id="menubar">
+            <div class="menu-item" data-menu="file">
+                <span>File</span>
+                <div class="menu-dropdown">
+                    <div class="menu-option" id="menu-new">New</div>
+                    <div class="menu-option" id="menu-open">Open...</div>
+                    <div class="menu-option" id="menu-save">Save</div>
+                    <div class="menu-option" id="menu-save-as">Save As...</div>
+                    <div class="menu-separator"></div>
+                    <div class="menu-option" id="menu-import-org">Import Org Maker (.org)...</div>
+                    <div class="menu-option" id="menu-import-midi">Import MIDI (.mid)...</div>
+                    <div class="menu-separator"></div>
+                    <div class="menu-option has-submenu">
+                        <span>Sample Songs</span>
+                        <span class="submenu-arrow">▶</span>
+                        <div class="menu-submenu">
+                            <div class="menu-option" data-org="songs/Pixel/all/">Cave Story (All Songs)...</div>
+                            <div class="menu-option" data-midi-dir="songs/classical/">Classical Music...</div>
+                            <div class="menu-separator"></div>
+                            <div class="menu-option" data-org="songs/Pixel/all/Cave Story.org">Cave Story</div>
+                            <div class="menu-option" data-org="songs/Pixel/all/Labyrinth Fight.org">Labyrinth Fight</div>
+                            <div class="menu-option" data-org="songs/Pixel/all/Mischievous Robot.org">Mischievous Robot</div>
+                            <div class="menu-option" data-org="songs/Pixel/all/Moonsong.org">Moonsong</div>
+                            <div class="menu-option" data-org="songs/Pixel/all/Running Hell.org">Running Hell</div>
+                            <div class="menu-option" data-org="songs/Pixel/all/Torokos Theme.org">Torokos Theme</div>
+                            <div class="menu-option" data-org="songs/Pixel/all/White.org">White</div>
+                            <div class="menu-option" data-org="songs/Pixel/all/Wind Fortress.org">Wind Fortress</div>
+                        </div>
+                    </div>
+                    <div class="menu-separator"></div>
+                    <div class="menu-option disabled" id="menu-export">Export Audio...</div>
+                    <div class="menu-separator"></div>
+                    <div class="menu-option disabled" id="menu-exit">Exit</div>
+                </div>
+            </div>
+            <div class="menu-item" data-menu="edit">
+                <span>Edit</span>
+                <div class="menu-dropdown">
+                    <div class="menu-option disabled" id="menu-undo">Undo</div>
+                    <div class="menu-option disabled" id="menu-redo">Redo</div>
+                    <div class="menu-separator"></div>
+                    <div class="menu-option" id="menu-cut">Cut</div>
+                    <div class="menu-option" id="menu-copy">Copy</div>
+                    <div class="menu-option" id="menu-paste">Paste</div>
+                    <div class="menu-option" id="menu-delete">Delete</div>
+                    <div class="menu-separator"></div>
+                    <div class="menu-option" id="menu-select-all">Select All</div>
+                </div>
+            </div>
+            <div class="menu-item" data-menu="view">
+                <span>View</span>
+                <div class="menu-dropdown">
+                    <div class="menu-option disabled" id="menu-zoom-in">Zoom In</div>
+                    <div class="menu-option disabled" id="menu-zoom-out">Zoom Out</div>
+                    <div class="menu-option disabled" id="menu-zoom-reset">Reset Zoom</div>
+                    <div class="menu-separator"></div>
+                    <div class="menu-option menu-checkbox" id="menu-grid-snap">
+                        <span class="menu-check">✓</span>Grid Snap
+                    </div>
+                    <div class="menu-option menu-checkbox" id="menu-show-fps">
+                        <span class="menu-check">✓</span>Show FPS
+                    </div>
+                    <div class="menu-option menu-checkbox" id="menu-follow-mode">
+                        <span class="menu-check">✓</span>Follow Playback
                     </div>
                 </div>
-                <div class="menu-separator"></div>
-                <div class="menu-option disabled" id="menu-export">Export Audio...</div>
-                <div class="menu-separator"></div>
-                <div class="menu-option disabled" id="menu-exit">Exit</div>
             </div>
-        </div>
-        <div class="menu-item" data-menu="edit">
-            <span>Edit</span>
-            <div class="menu-dropdown">
-                <div class="menu-option disabled" id="menu-undo">Undo</div>
-                <div class="menu-option disabled" id="menu-redo">Redo</div>
-                <div class="menu-separator"></div>
-                <div class="menu-option" id="menu-cut">Cut</div>
-                <div class="menu-option" id="menu-copy">Copy</div>
-                <div class="menu-option" id="menu-paste">Paste</div>
-                <div class="menu-option" id="menu-delete">Delete</div>
-                <div class="menu-separator"></div>
-                <div class="menu-option" id="menu-select-all">Select All</div>
-            </div>
-        </div>
-        <div class="menu-item" data-menu="view">
-            <span>View</span>
-            <div class="menu-dropdown">
-                <div class="menu-option disabled" id="menu-zoom-in">Zoom In</div>
-                <div class="menu-option disabled" id="menu-zoom-out">Zoom Out</div>
-                <div class="menu-option disabled" id="menu-zoom-reset">Reset Zoom</div>
-                <div class="menu-separator"></div>
-                <div class="menu-option menu-checkbox" id="menu-grid-snap">
-                    <span class="menu-check">✓</span>Grid Snap
-                </div>
-                <div class="menu-option menu-checkbox" id="menu-show-fps">
-                    <span class="menu-check">✓</span>Show FPS
-                </div>
-                <div class="menu-option menu-checkbox" id="menu-follow-mode">
-                    <span class="menu-check">✓</span>Follow Playback
+            <div class="menu-item" data-menu="tools">
+                <span>Tools</span>
+                <div class="menu-dropdown">
+                    <div class="menu-option" id="menu-clear-all">Clear All Notes</div>
+                    <div class="menu-option disabled" id="menu-transpose">Transpose...</div>
+                    <div class="menu-option disabled" id="menu-quantize">Quantize</div>
                 </div>
             </div>
-        </div>
-        <div class="menu-item" data-menu="tools">
-            <span>Tools</span>
-            <div class="menu-dropdown">
-                <div class="menu-option" id="menu-clear-all">Clear All Notes</div>
-                <div class="menu-option disabled" id="menu-transpose">Transpose...</div>
-                <div class="menu-option disabled" id="menu-quantize">Quantize</div>
+            <div class="menu-item" data-menu="help">
+                <span>Help</span>
+                <div class="menu-dropdown">
+                    <div class="menu-option" id="menu-shortcuts">Keyboard Shortcuts</div>
+                    <div class="menu-option" id="menu-about">About</div>
+                </div>
             </div>
-        </div>
-        <div class="menu-item" data-menu="help">
-            <span>Help</span>
-            <div class="menu-dropdown">
-                <div class="menu-option" id="menu-shortcuts">Keyboard Shortcuts</div>
-                <div class="menu-option" id="menu-about">About</div>
+            
+            <div class="menu-spacer"></div>
+            
+            <div class="menu-instrument-selector">
+                <label>Voice:</label>
+                <select id="waveformSelect">
+                    <!-- Options will be populated dynamically -->
+                </select>
+                <span id="instrumentColorIndicator"></span>
             </div>
         </div>
         
-        <div class="menu-spacer"></div>
-        
-        <div class="menu-instrument-selector">
-            <label>Instrument:</label>
-            <select id="waveformSelect">
-                <!-- Options will be populated dynamically -->
-            </select>
-            <span id="instrumentColorIndicator"></span>
-        </div>
-    </div>
-    
-    <div id="container">
         <div id="controls">
             <h1>that72.org</h1>
             
@@ -218,6 +219,6 @@
     </div>
     
     <!-- Load JavaScript modules -->
-    <script type="module" src="js/main.js?v=20250527122013"></script>
+    <script type="module" src="js/main.js?v=20250527112933"></script>
 </body>
 </html>

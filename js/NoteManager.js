@@ -144,21 +144,29 @@ export class NoteManager {
 
     /**
      * Resize selected notes
-     * @param {number} deltaWidth - Width change
+     * @param {number} deltaWidth - Width change from original position
      * @param {string} direction - Resize direction ('left' or 'right')
+     * @param {Map} originalWidths - Map of notes to their original widths
+     * @param {Map} originalPositions - Map of notes to their original positions (for left resize)
      */
-    resizeSelectedNotes(deltaWidth, direction) {
+    resizeSelectedNotes(deltaWidth, direction, originalWidths, originalPositions) {
         const subdivisionWidth = GRID_WIDTH / GRID_SUBDIVISIONS;
         
         for (const note of this.selectedNotes) {
+            const originalWidth = originalWidths?.get(note) || note.width;
+            
             if (direction === 'right') {
-                note.width = Math.max(subdivisionWidth, note.width + deltaWidth);
+                // Calculate new width based on original width + delta
+                note.width = Math.max(subdivisionWidth, originalWidth + deltaWidth);
             } else if (direction === 'left') {
-                const newX = note.x + deltaWidth;
-                const newWidth = note.width - deltaWidth;
-                if (newWidth >= subdivisionWidth && newX >= PIANO_KEY_WIDTH) {
-                    note.x = newX;
-                    note.width = newWidth;
+                const originalPos = originalPositions?.get(note);
+                if (originalPos) {
+                    const newX = originalPos.x + deltaWidth;
+                    const newWidth = originalWidth - deltaWidth;
+                    if (newWidth >= subdivisionWidth && newX >= PIANO_KEY_WIDTH) {
+                        note.x = newX;
+                        note.width = newWidth;
+                    }
                 }
             }
         }
@@ -185,7 +193,15 @@ export class NoteManager {
         // Copy notes with relative positions
         for (const note of this.selectedNotes) {
             this.clipboard.push({
-                ...note,
+                x: note.x,
+                y: note.y,
+                width: note.width,
+                height: note.height,
+                key: note.key,
+                velocity: note.velocity,
+                pan: note.pan,
+                instrument: note.instrument,
+                pipi: note.pipi,
                 relativeX: note.x - minX,
                 relativeY: note.y - minY,
                 id: undefined // Will get new ID when pasted

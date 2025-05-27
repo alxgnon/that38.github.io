@@ -163,12 +163,28 @@ export class Renderer {
         this.ctx.lineTo(loopEndX, this.pianoRoll.totalHeight);
         this.ctx.stroke();
         
-        // Draw labels
-        this.ctx.fillStyle = COLORS.loopMarker;
+        // Draw labels with background boxes
+        const labelY = this.pianoRoll.scrollY + 20;
         this.ctx.font = 'bold 12px Arial';
         this.ctx.textAlign = 'center';
-        this.ctx.fillText('A', loopStartX, 25);
-        this.ctx.fillText('B', loopEndX, 25);
+        
+        // A label - offset to the right of the line
+        const aLabelX = loopStartX + 15;
+        // Draw background box
+        this.ctx.fillStyle = 'rgba(34, 34, 34, 0.9)';
+        this.ctx.fillRect(aLabelX - 10, labelY - 12, 20, 18);
+        // Draw text
+        this.ctx.fillStyle = COLORS.loopMarker;
+        this.ctx.fillText('A', aLabelX, labelY);
+        
+        // B label - offset to the left of the line
+        const bLabelX = loopEndX - 15;
+        // Draw background box
+        this.ctx.fillStyle = 'rgba(34, 34, 34, 0.9)';
+        this.ctx.fillRect(bLabelX - 10, labelY - 12, 20, 18);
+        // Draw text
+        this.ctx.fillStyle = COLORS.loopMarker;
+        this.ctx.fillText('B', bLabelX, labelY);
     }
 
     /**

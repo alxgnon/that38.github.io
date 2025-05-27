@@ -16,7 +16,6 @@ export class InputHandler {
         this.isCreatingNote = false;
         this.isSelecting = false;
         this.isDeleteSelecting = false;
-        this.isPanning = false;
         
         // Drag state
         this.dragStartX = 0;
@@ -84,11 +83,22 @@ export class InputHandler {
      * Check if mouse is in resize zone
      */
     isInResizeZone(note, x) {
-        const leftZone = note.width > RESIZE_HANDLE_WIDTH * 3 ? 
-            RESIZE_HANDLE_WIDTH : RESIZE_HANDLE_WIDTH / 2;
+        // For narrow notes, make resize zones proportionally smaller
+        let resizeZoneWidth;
+        if (note.width <= GRID_WIDTH) {
+            // For 1-unit notes, use very small resize zones (3 pixels each side)
+            resizeZoneWidth = 3;
+        } else if (note.width <= GRID_WIDTH * 2) {
+            // For 2-unit notes, use 5 pixels
+            resizeZoneWidth = 5;
+        } else {
+            // For wider notes, use the standard size
+            resizeZoneWidth = RESIZE_HANDLE_WIDTH;
+        }
+        
         return {
-            left: x <= note.x + leftZone,
-            right: x >= note.x + note.width - RESIZE_HANDLE_WIDTH
+            left: x <= note.x + resizeZoneWidth,
+            right: x >= note.x + note.width - resizeZoneWidth
         };
     }
 
@@ -106,9 +116,6 @@ export class InputHandler {
         } else if (e.button === 0) {
             // Left click
             this.handleLeftClick(x, y, e);
-        } else if (e.button === 1) {
-            // Middle click - start panning
-            this.startPanning(x, y);
         }
     }
 
@@ -230,25 +237,32 @@ export class InputHandler {
         this.isResizing = true;
         this.dragNote = note;
         this.resizeDirection = direction;
-        this.dragStartX = direction === 'right' ? note.x + note.width : note.x;
+        this.dragStartX = this.mouseX; // Store the actual mouse position
         
-        if (direction === 'left') {
+        if (direction === 'right') {
+            this.originalNoteWidth = note.width;
+        } else {
+            this.originalNoteX = note.x;
             this.originalNoteEnd = note.x + note.width;
         }
         
-        // Store original widths for all selected notes
+        // Store original widths and positions for all selected notes
         if (isNoteSelected || this.pianoRoll.noteManager.selectedNotes.has(note)) {
             this.originalWidths = new Map();
-            for (const n of this.pianoRoll.noteManager.selectedNotes) {
-                this.originalWidths.set(n, n.width);
-            }
+            this.originalPositions = new Map();
             
-            if (direction === 'left') {
-                this.originalPositions = new Map();
-                for (const n of this.pianoRoll.noteManager.selectedNotes) {
-                    this.originalPositions.set(n, { x: n.x, y: n.y });
-                }
+            // Make sure to include the current note in the maps
+            const notesToResize = new Set(this.pianoRoll.noteManager.selectedNotes);
+            notesToResize.add(note);
+            
+            for (const n of notesToResize) {
+                this.originalWidths.set(n, n.width);
+                this.originalPositions.set(n, { x: n.x, y: n.y });
             }
+        } else {
+            // Single note resize
+            this.originalWidths = new Map([[note, note.width]]);
+            this.originalPositions = new Map([[note, { x: note.x, y: note.y }]]);
         }
     }
 
@@ -312,16 +326,6 @@ export class InputHandler {
     }
     
     /**
-     * Start panning
-     */
-    startPanning(x, y) {
-        this.isPanning = true;
-        this.dragStartX = x;
-        this.dragStartY = y;
-        this.canvas.style.cursor = 'move';
-    }
-
-    /**
      * Handle mouse move
      */
     onMouseMove(e) {
@@ -337,9 +341,7 @@ export class InputHandler {
         }
         
         // Handle different drag modes
-        if (this.isPanning) {
-            this.handlePanning(x, y);
-        } else if (this.isResizing) {
+        if (this.isResizing) {
             this.handleResize(x, y);
         } else if (this.isCreatingNote && this.dragNote) {
             this.handleNoteCreation(x, y);
@@ -355,43 +357,39 @@ export class InputHandler {
     }
 
     /**
-     * Handle panning
-     */
-    handlePanning(x, y) {
-        const deltaX = this.dragStartX - x;
-        const deltaY = this.dragStartY - y;
-        
-        this.pianoRoll.scrollX = Math.max(0, 
-            Math.min(this.pianoRoll.totalWidth - this.canvas.width, 
-                this.pianoRoll.scrollX + deltaX));
-        this.pianoRoll.scrollY = Math.max(0, 
-            Math.min(this.pianoRoll.totalHeight - this.canvas.height, 
-                this.pianoRoll.scrollY + deltaY));
-        
-        this.dragStartX = x;
-        this.dragStartY = y;
-        this.pianoRoll.dirty = true;
-    }
-
-    /**
      * Handle resize
      */
     handleResize(x, y) {
         if (!this.dragNote) return;
         
+        // Snap x to grid if grid snap is enabled
+        if (this.pianoRoll.gridSnap) {
+            const subdivisionWidth = GRID_WIDTH / GRID_SUBDIVISIONS;
+            x = Math.round(x / subdivisionWidth) * subdivisionWidth;
+        }
+        
         const deltaX = x - this.dragStartX;
         
         if (this.pianoRoll.noteManager.selectedNotes.has(this.dragNote)) {
             // Resize all selected notes
-            this.pianoRoll.noteManager.resizeSelectedNotes(deltaX, this.resizeDirection);
+            this.pianoRoll.noteManager.resizeSelectedNotes(deltaX, this.resizeDirection, this.originalWidths, this.originalPositions);
         } else {
             // Resize single note
+            const minWidth = GRID_WIDTH / GRID_SUBDIVISIONS;
+            
             if (this.resizeDirection === 'right') {
-                this.dragNote.width = Math.max(1, x - this.dragNote.x);
+                // Right edge resize - calculate new width based on original width + delta
+                const newWidth = this.originalNoteWidth + deltaX;
+                this.dragNote.width = Math.max(minWidth, newWidth);
             } else {
-                const newX = Math.min(x, this.originalNoteEnd - 1);
-                this.dragNote.width = this.originalNoteEnd - newX;
-                this.dragNote.x = newX;
+                // Left edge resize - move left edge while keeping right edge fixed
+                const newX = this.originalNoteX + deltaX;
+                const newWidth = this.originalNoteEnd - newX;
+                
+                if (newWidth >= minWidth && newX >= PIANO_KEY_WIDTH) {
+                    this.dragNote.x = newX;
+                    this.dragNote.width = newWidth;
+                }
             }
         }
         
@@ -557,6 +555,11 @@ export class InputHandler {
             this.pressedKeys.clear();
         }
         
+        // Emit notesChanged if we were editing notes
+        if (this.isDragging || this.isResizing || this.isCreatingNote) {
+            this.pianoRoll.emit('notesChanged');
+        }
+        
         // Reset all states
         this.isDragging = false;
         this.isResizing = false;
@@ -564,7 +567,6 @@ export class InputHandler {
         this.isSelecting = false;
         this.isDeleteSelecting = false;
         this.isGlissando = false;
-        this.isPanning = false;
         this.dragNote = null;
         this.currentPlayingKey = null;
         this.lastGlissandoKey = -1;
@@ -697,6 +699,7 @@ export class InputHandler {
                 break;
         }
         
+        this.pianoRoll.emit('notesChanged');
         this.pianoRoll.dirty = true;
     }
 }

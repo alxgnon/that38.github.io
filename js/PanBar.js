@@ -114,8 +114,8 @@ export class PanBar {
     findNoteAtX(x) {
         const notes = this.pianoRoll.noteManager.notes;
         for (const note of notes) {
-            const noteCenter = note.x + note.width / 2;
-            if (Math.abs(x - noteCenter) < 5) {
+            // Check if x is near the note's start position
+            if (Math.abs(x - note.x) < 5) {
                 return note;
             }
         }
@@ -170,7 +170,7 @@ export class PanBar {
         // Draw note pan handles
         const notes = this.pianoRoll.noteManager.notes;
         for (const note of notes) {
-            const x = note.x + note.width / 2;
+            const x = note.x;
             const pan = note.pan || 0;
             const y = this.canvas.height / 2 - (pan / 100) * (this.canvas.height / 2);
             
@@ -184,10 +184,10 @@ export class PanBar {
             
             // Determine color based on state
             let color = instrumentColor.note;
-            if (isDragging) {
+            if (isSelected) {
+                color = '#ffa500';  // Keep orange for selected notes, even when dragging
+            } else if (isDragging) {
                 color = '#4a9eff';
-            } else if (isSelected) {
-                color = '#ffa500';
             } else if (isHovered) {
                 // Brighten the instrument color slightly for hover
                 color = this.adjustBrightness(instrumentColor.note, 20);
@@ -207,6 +207,16 @@ export class PanBar {
             this.ctx.beginPath();
             this.ctx.arc(x, y, handleRadius, 0, Math.PI * 2);
             this.ctx.fill();
+            
+            // Apply velocity-based transparency overlay (darker = lower velocity)
+            if (!isSelected && !isDragging) {
+                const velocity = note.velocity || 100;
+                const velocityAlpha = 1 - (velocity / 127) * 0.6;
+                this.ctx.fillStyle = `rgba(0, 0, 0, ${velocityAlpha})`;
+                this.ctx.beginPath();
+                this.ctx.arc(x, y, handleRadius, 0, Math.PI * 2);
+                this.ctx.fill();
+            }
             
             // Add selection ring for selected notes
             if (isSelected && !isDragging) {

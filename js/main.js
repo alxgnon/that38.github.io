@@ -133,7 +133,7 @@ function setupModals() {
     modalManager.register('infoModal', {
         onShow: (data) => {
             document.getElementById('infoModalTitle').textContent = data.title || 'Information';
-            document.getElementById('infoModalContent').textContent = data.content || '';
+            document.getElementById('infoModalContent').innerHTML = data.content || '';
         }
     });
     modalManager.register('confirmModal');
@@ -314,6 +314,7 @@ async function handleClearAll() {
 
 function handleCut() {
     pianoRoll.noteManager.cutSelectedNotes();
+    pianoRoll.emit('notesChanged');
     pianoRoll.dirty = true;
 }
 
@@ -328,11 +329,13 @@ function handlePaste() {
     const pasteY = pianoRoll.inputHandler.mouseY || 0;
     
     pianoRoll.noteManager.pasteNotes(pasteX, pasteY);
+    pianoRoll.emit('notesChanged');
     pianoRoll.dirty = true;
 }
 
 function handleDelete() {
     pianoRoll.noteManager.deleteSelectedNotes();
+    pianoRoll.emit('notesChanged');
     pianoRoll.dirty = true;
 }
 
@@ -346,36 +349,99 @@ function handleSelectAll() {
  */
 function showShortcuts() {
     const shortcuts = `
-Keyboard Shortcuts:
+<div class="shortcuts-container">
+    <div class="shortcut-section">
+        <h3>Playback</h3>
+        <div class="shortcut-item">
+            <span class="shortcut-key">Space</span>
+            <span class="shortcut-desc">Play/Pause</span>
+        </div>
+        <div class="shortcut-item">
+            <span class="shortcut-key">Enter</span>
+            <span class="shortcut-desc">Stop</span>
+        </div>
+    </div>
 
-Playback:
-  Space         Play/Pause
-  Enter         Stop
+    <div class="shortcut-section">
+        <h3>Selection</h3>
+        <div class="shortcut-item">
+            <span class="shortcut-key">Ctrl+A</span>
+            <span class="shortcut-desc">Select All</span>
+        </div>
+        <div class="shortcut-item">
+            <span class="shortcut-key">Ctrl+Drag</span>
+            <span class="shortcut-desc">Box select multiple notes</span>
+        </div>
+        <div class="shortcut-item">
+            <span class="shortcut-key">Shift+Click</span>
+            <span class="shortcut-desc">Add note to selection</span>
+        </div>
+        <div class="shortcut-item">
+            <span class="shortcut-key">Shift+Drag</span>
+            <span class="shortcut-desc">Add multiple notes to selection</span>
+        </div>
+    </div>
 
-Selection:
-  Ctrl+A        Select All
-  Ctrl+Click    Add to selection
-  Shift+Click   Toggle selection
-  Click+Drag    Box select
+    <div class="shortcut-section">
+        <h3>Editing</h3>
+        <div class="shortcut-item">
+            <span class="shortcut-key">Ctrl+C</span>
+            <span class="shortcut-desc">Copy</span>
+        </div>
+        <div class="shortcut-item">
+            <span class="shortcut-key">Ctrl+X</span>
+            <span class="shortcut-desc">Cut</span>
+        </div>
+        <div class="shortcut-item">
+            <span class="shortcut-key">Ctrl+V</span>
+            <span class="shortcut-desc">Paste</span>
+        </div>
+        <div class="shortcut-item">
+            <span class="shortcut-key">Delete</span>
+            <span class="shortcut-desc">Delete selected</span>
+        </div>
+        <div class="shortcut-item">
+            <span class="shortcut-key">Arrow Keys</span>
+            <span class="shortcut-desc">Move selected notes</span>
+        </div>
+    </div>
 
-Editing:
-  Ctrl+C        Copy
-  Ctrl+X        Cut
-  Ctrl+V        Paste
-  Delete        Delete selected
-  Arrow Keys    Move selected notes
+    <div class="shortcut-section">
+        <h3>Navigation</h3>
+        <div class="shortcut-item">
+            <span class="shortcut-key">Mouse Wheel</span>
+            <span class="shortcut-desc">Vertical scroll</span>
+        </div>
+        <div class="shortcut-item">
+            <span class="shortcut-key">Shift+Wheel</span>
+            <span class="shortcut-desc">Horizontal scroll</span>
+        </div>
+        <div class="shortcut-item">
+            <span class="shortcut-key">Home</span>
+            <span class="shortcut-desc">Go to start</span>
+        </div>
+        <div class="shortcut-item">
+            <span class="shortcut-key">End</span>
+            <span class="shortcut-desc">Go to end</span>
+        </div>
+    </div>
 
-Navigation:
-  Mouse Wheel   Vertical scroll
-  Shift+Wheel   Horizontal scroll
-  Middle Click  Pan view
-  Home          Go to start
-  End           Go to end
-
-Notes:
-  Left Click    Create note
-  Right Click   Delete note
-  Drag edges    Resize note`;
+    <div class="shortcut-section">
+        <h3>Notes</h3>
+        <div class="shortcut-item">
+            <span class="shortcut-key">Left Click</span>
+            <span class="shortcut-desc">Create note</span>
+        </div>
+        <div class="shortcut-item">
+            <span class="shortcut-key">Right Click</span>
+            <span class="shortcut-desc">Delete note</span>
+        </div>
+        <div class="shortcut-item">
+            <span class="shortcut-key">Drag edges</span>
+            <span class="shortcut-desc">Resize note</span>
+        </div>
+    </div>
+</div>`;
     
     modalManager.show('infoModal', {
         title: 'Keyboard Shortcuts',

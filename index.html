@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>that72.org</title>
-    <link rel="stylesheet" href="css/styles.css?v=20250526215702">
+    <link rel="stylesheet" href="css/styles.css?v=20250526222435">
 </head>
 <body>
     <div id="menubar">
@@ -119,14 +119,6 @@
                 </label>
             </div>
             
-            <div class="control-group instrument-group">
-                <label>Instrument:</label>
-                <select id="waveformSelect">
-                    <!-- Options will be populated dynamically -->
-                </select>
-                <span id="instrumentColorIndicator"></span>
-            </div>
-            
             <div class="control-group loop">
                 <button id="loopBtn" title="Toggle Loop">
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
@@ -140,6 +132,14 @@
                     <span>B</span>
                     <input type="number" id="loopEndInput" min="1" max="128" value="5">
                 </div>
+            </div>
+            
+            <div class="control-group instrument-group">
+                <label>Instrument:</label>
+                <select id="waveformSelect">
+                    <!-- Options will be populated dynamically -->
+                </select>
+                <span id="instrumentColorIndicator"></span>
             </div>
         </div>
         
@@ -202,6 +202,6 @@
     </div>
     
     <!-- Load JavaScript modules -->
-    <script type="module" src="js/main.js?v=20250526215702"></script>
+    <script type="module" src="js/main.js?v=20250526222435"></script>
 </body>
 </html>

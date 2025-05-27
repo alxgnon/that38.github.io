@@ -30,8 +30,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         velocityBar = new VelocityBar(velocityCanvas, pianoRoll);
     }
     
-    // Make pianoRoll globally accessible for debugging
-    window.pianoRoll = pianoRoll;
     
     // Setup UI controls
     setupControls();
@@ -567,6 +565,3 @@ document.addEventListener('keydown', (e) => {
     }
 });
 
-// Export for debugging
-window.modalManager = modalManager;
-window.menuManager = menuManager;

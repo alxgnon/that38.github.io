@@ -48,9 +48,7 @@ export class PianoRoll {
         this.scrollY = 0;
         this.isPlaying = false;
         this.isPaused = false;
-        this.pausedElapsed = 0;
         this.currentMeasure = 0;
-        this.measureStartTime = 0;
         this.gridSnap = true;
         this.currentVelocity = DEFAULT_VELOCITY;
         this.currentSample = 'ORG_M00';
@@ -422,7 +420,6 @@ export class PianoRoll {
             
             return true;
         } catch (error) {
-            console.error('Failed to load ORG file:', error);
             throw error;
         }
     }

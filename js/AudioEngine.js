@@ -69,21 +69,18 @@ export class AudioEngine {
                     const riffId = view.getUint32(i, true); i += 4;
                     const riffLen = view.getUint32(i, true); i += 4;
                     if (riffId !== 0x20746d66) { // 'fmt '
-                        console.error('Invalid RIFF chunk ID');
                         continue;
                     }
                     
                     const startPos = i;
                     const aFormat = view.getUint16(i, true); i += 2;
                     if (aFormat !== 1) {
-                        console.error('Invalid audio format');
                         i = startPos + riffLen;
                         continue;
                     }
                     
                     const channels = view.getUint16(i, true); i += 2;
                     if (channels !== 1) {
-                        console.error('Only 1 channel files are supported');
                         i = startPos + riffLen;
                         continue;
                     }
@@ -112,10 +109,8 @@ export class AudioEngine {
                 }
             }
             
-            console.log(`Loaded wavetable with 100 waves and ${this.drums.length} drums (using first ${MAX_DRUMS})`);
             return true;
         } catch (error) {
-            console.error('Failed to load wavetable:', error);
             return false;
         }
     }
@@ -186,11 +181,6 @@ export class AudioEngine {
                         }
                         
                         // Check if waveform is silent or very quiet
-                        if (!hasSound) {
-                            console.warn(`Warning: ${sampleName} waveform appears to be silent (all zeros)`);
-                        } else if (maxSample - minSample < 10) {
-                            console.warn(`Warning: ${sampleName} has very low amplitude (range: ${minSample} to ${maxSample})`);
-                        }
                         
                         
                         
@@ -199,7 +189,6 @@ export class AudioEngine {
                     }
                 }
             } catch (error) {
-                console.error(`Failed to generate sample ${sampleName} from wavetable:`, error);
             }
         }
         
@@ -212,7 +201,6 @@ export class AudioEngine {
             this.loadedSamples.set(sampleName, audioBuffer);
             return audioBuffer;
         } catch (error) {
-            console.error(`Failed to load sample ${sampleName}:`, error);
             return null;
         }
     }
@@ -475,7 +463,6 @@ export class AudioEngine {
                 }, 50);
             } catch (e) {
                 // Force cleanup on error
-                console.warn('Error stopping note:', e);
                 try {
                     note.source.disconnect();
                     note.gain.disconnect();

@@ -184,12 +184,6 @@ export class OrgParser {
         const notes = [];
         const { header, instruments, tracks } = orgData;
         
-        // Debug: Check instrument settings
-        console.log('=== Instrument Settings ===');
-        instruments.forEach((inst, i) => {
-            console.log(`Track ${i}: instrument=${inst.instrument}, pipi=${inst.pipi}, pitch=${inst.pitch}, noteCount=${inst.noteCount}`);
-        });
-        
         // ORG 'wait' value represents milliseconds per tick
         // Lower wait = faster tempo
         const msPerTick = header.wait;

@@ -16,7 +16,6 @@ export class ModalManager {
     register(id, config = {}) {
         const modal = document.getElementById(id);
         if (!modal) {
-            console.error(`Modal with id '${id}' not found`);
             return;
         }
 
@@ -42,7 +41,6 @@ export class ModalManager {
     show(id, data = {}) {
         const modal = this.modals.get(id);
         if (!modal) {
-            console.error(`Modal '${id}' not registered`);
             return Promise.reject();
         }
 

@@ -498,8 +498,10 @@ select:hover {
 }
 
 .modal-title {
-    font-size: 18px;
-    font-weight: bold;
+    font-size: 16px;
+    font-weight: normal;
+    color: #fff;
+    margin: 0;
 }
 
 .modal-close {
@@ -609,15 +611,36 @@ select:hover {
 
 /* Info modal for About and Shortcuts */
 .info-modal {
-    white-space: pre-wrap;
+    white-space: normal;
     line-height: 1.6;
+    color: #e0e0e0;
+    padding: 10px 0;
+}
+
+.info-modal h2 {
+    font-size: 20px;
+    margin-bottom: 10px;
+}
+
+.info-modal h3 {
+    font-size: 14px;
+    color: #4a9eff;
+    margin-top: 20px;
+    margin-bottom: 10px;
+    font-weight: normal;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.info-modal p {
+    margin: 10px 0;
 }
 
 /* Keyboard shortcuts styling */
 .shortcuts-container {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 20px;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 25px;
     white-space: normal;
 }
 

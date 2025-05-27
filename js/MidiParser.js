@@ -511,7 +511,8 @@ export class MidiParser {
             if (event.type === 'programChange') {
                 // Track program changes per channel
                 channelPrograms.set(event.channel, event.program);
-                console.log(`Program change: Channel ${event.channel} → Program ${event.program} (${this.getMidiInstrumentName(event.program)})`);
+                const pan = this.getOrchestralPan(event.program);
+                console.log(`Program change: Channel ${event.channel} → Program ${event.program} (${this.getMidiInstrumentName(event.program)}) → Pan ${pan}`);
             } else if (event.type === 'noteOn') {
                 // Store note start with track info
                 const key = `${event.trackIndex}-${event.channel}-${event.note}`;
@@ -607,7 +608,7 @@ export class MidiParser {
                         
                         // Log first few notes for debugging
                         if (notes.length < 10) {
-                            console.log(`Note ${notes.length}: Track=${noteStart.trackIndex}, Ch=${noteStart.channel}, MIDI=${noteStart.midiNote}, Vel=${noteStart.velocity}→${velocity}, Time=${noteStart.startTime}→${event.time}, x=${x}, width=${width}`);
+                            console.log(`Note ${notes.length}: Track=${noteStart.trackIndex}, Ch=${noteStart.channel}, MIDI=${noteStart.midiNote}, Vel=${noteStart.velocity}→${velocity}, Pan=${pan}, Inst=${instrument}, Time=${noteStart.startTime}→${event.time}`);
                         }
                         
                         notes.push({
@@ -709,6 +710,13 @@ export class MidiParser {
             console.log(`- Instrument assignments:`);
             trackChannelInstruments.forEach((instrument, key) => {
                 console.log(`  Track/Channel ${key} → ${instrument}`);
+            });
+            
+            // Show program and pan assignments
+            console.log(`- Program/Pan assignments:`);
+            channelPrograms.forEach((program, channel) => {
+                const pan = this.getOrchestralPan(program);
+                console.log(`  Channel ${channel} → Program ${program} (${this.getMidiInstrumentName(program)}) → Pan ${pan}`);
             });
             console.log(`- Tempo: ${tempo} BPM`);
             console.log(`- Time range: ${minTime}-${maxTime} ticks (first note at ${minTime})`);
@@ -912,8 +920,15 @@ export class MidiParser {
         // Far right: Timpani, Percussion, Tuba
         
         const panMap = {
-            // Pianos - center
-            0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0,
+            // Pianos - spread across stage
+            0: 0,     // Acoustic Grand Piano - center
+            1: 10,    // Bright Acoustic Piano - slightly right
+            2: -10,   // Electric Grand Piano - slightly left
+            3: 15,    // Honky-tonk Piano - right
+            4: -15,   // Electric Piano 1 - left
+            5: 20,    // Electric Piano 2 - right
+            6: -25,   // Harpsichord - left (baroque position)
+            7: 25,    // Clavi - right
             
             // Chromatic percussion - center to right
             8: 20,    // Celesta
@@ -947,8 +962,11 @@ export class MidiParser {
             // String ensembles
             48: -60, 49: -40, 50: -40, 51: -20,
             
-            // Choir/Vocals - center
-            52: 0, 53: 0, 54: 0, 55: 0,
+            // Choir/Vocals - spread for multi-part arrangements
+            52: -20,  // Choir Aahs - left
+            53: 20,   // Voice Oohs - right
+            54: -10,  // Synth Voice - slightly left
+            55: 0,    // Orchestra Hit - center
             
             // Brass
             56: 40,   // Trumpet (right)
@@ -994,7 +1012,12 @@ export class MidiParser {
             120: 0, 121: 0, 122: 0, 123: 0, 124: 0, 125: 0, 126: 0, 127: 0
         };
         
-        return panMap[program] || 0;
+        const pan = panMap[program];
+        if (pan === undefined) {
+            console.warn(`No pan mapping for program ${program}, using center (0)`);
+            return 0;
+        }
+        return pan;
     }
     
     /**

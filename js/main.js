@@ -457,51 +457,83 @@ function showShortcuts() {
         </div>
         <div class="shortcut-item">
             <span class="shortcut-key">Enter</span>
-            <span class="shortcut-desc">Stop</span>
+            <span class="shortcut-desc">Stop and return to start</span>
+        </div>
+        <div class="shortcut-item">
+            <span class="shortcut-key">L</span>
+            <span class="shortcut-desc">Toggle loop mode</span>
         </div>
     </div>
 
     <div class="shortcut-section">
-        <h3>Selection</h3>
+        <h3>File Operations</h3>
+        <div class="shortcut-item">
+            <span class="shortcut-key">Ctrl+S</span>
+            <span class="shortcut-desc">Save project</span>
+        </div>
+        <div class="shortcut-item">
+            <span class="shortcut-key">Ctrl+O</span>
+            <span class="shortcut-desc">Open file</span>
+        </div>
+        <div class="shortcut-item">
+            <span class="shortcut-key">Ctrl+N</span>
+            <span class="shortcut-desc">New project</span>
+        </div>
+    </div>
+
+    <div class="shortcut-section">
+        <h3>Selection & Editing</h3>
         <div class="shortcut-item">
             <span class="shortcut-key">Ctrl+A</span>
-            <span class="shortcut-desc">Select All</span>
+            <span class="shortcut-desc">Select all notes</span>
         </div>
-        <div class="shortcut-item">
-            <span class="shortcut-key">Ctrl+Drag</span>
-            <span class="shortcut-desc">Box select multiple notes</span>
-        </div>
-        <div class="shortcut-item">
-            <span class="shortcut-key">Shift+Click</span>
-            <span class="shortcut-desc">Add note to selection</span>
-        </div>
-        <div class="shortcut-item">
-            <span class="shortcut-key">Shift+Drag</span>
-            <span class="shortcut-desc">Add multiple notes to selection</span>
-        </div>
-    </div>
-
-    <div class="shortcut-section">
-        <h3>Editing</h3>
         <div class="shortcut-item">
             <span class="shortcut-key">Ctrl+C</span>
-            <span class="shortcut-desc">Copy</span>
+            <span class="shortcut-desc">Copy selected notes</span>
         </div>
         <div class="shortcut-item">
             <span class="shortcut-key">Ctrl+X</span>
-            <span class="shortcut-desc">Cut</span>
+            <span class="shortcut-desc">Cut selected notes</span>
         </div>
         <div class="shortcut-item">
             <span class="shortcut-key">Ctrl+V</span>
-            <span class="shortcut-desc">Paste</span>
+            <span class="shortcut-desc">Paste notes at cursor</span>
         </div>
         <div class="shortcut-item">
             <span class="shortcut-key">Delete</span>
-            <span class="shortcut-desc">Delete selected</span>
+            <span class="shortcut-desc">Delete selected notes</span>
         </div>
         <div class="shortcut-item">
-            <span class="shortcut-key">Arrow Keys</span>
-            <span class="shortcut-desc">Move selected notes</span>
+            <span class="shortcut-key">Escape</span>
+            <span class="shortcut-desc">Deselect all</span>
+        </div>
+    </div>
+
+    <div class="shortcut-section">
+        <h3>Mouse Controls</h3>
+        <div class="shortcut-item">
+            <span class="shortcut-key">Left Click</span>
+            <span class="shortcut-desc">Create/select note</span>
+        </div>
+        <div class="shortcut-item">
+            <span class="shortcut-key">Right Click</span>
+            <span class="shortcut-desc">Delete note</span>
+        </div>
+        <div class="shortcut-item">
+            <span class="shortcut-key">Middle Click</span>
+            <span class="shortcut-desc">Pan view</span>
+        </div>
+        <div class="shortcut-item">
+            <span class="shortcut-key">Ctrl+Click</span>
+            <span class="shortcut-desc">Start box selection</span>
+        </div>
+        <div class="shortcut-item">
+            <span class="shortcut-key">Shift+Click</span>
+            <span class="shortcut-desc">Add to selection</span>
+        </div>
+        <div class="shortcut-item">
+            <span class="shortcut-key">Alt+Drag</span>
+            <span class="shortcut-desc">Duplicate notes</span>
         </div>
     </div>
 
@@ -509,35 +541,39 @@ function showShortcuts() {
         <h3>Navigation</h3>
         <div class="shortcut-item">
             <span class="shortcut-key">Mouse Wheel</span>
-            <span class="shortcut-desc">Vertical scroll</span>
+            <span class="shortcut-desc">Scroll vertically</span>
         </div>
         <div class="shortcut-item">
             <span class="shortcut-key">Shift+Wheel</span>
-            <span class="shortcut-desc">Horizontal scroll</span>
+            <span class="shortcut-desc">Scroll horizontally</span>
+        </div>
+        <div class="shortcut-item">
+            <span class="shortcut-key">Ctrl+Wheel</span>
+            <span class="shortcut-desc">Zoom in/out</span>
         </div>
         <div class="shortcut-item">
             <span class="shortcut-key">Home</span>
-            <span class="shortcut-desc">Go to start</span>
+            <span class="shortcut-desc">Go to beginning</span>
         </div>
         <div class="shortcut-item">
             <span class="shortcut-key">End</span>
-            <span class="shortcut-desc">Go to end</span>
+            <span class="shortcut-desc">Go to last note</span>
         </div>
     </div>
 
     <div class="shortcut-section">
-        <h3>Notes</h3>
+        <h3>Touch Controls</h3>
         <div class="shortcut-item">
-            <span class="shortcut-key">Left Click</span>
-            <span class="shortcut-desc">Create note</span>
+            <span class="shortcut-key">Single Tap</span>
+            <span class="shortcut-desc">Create/select note</span>
         </div>
         <div class="shortcut-item">
-            <span class="shortcut-key">Right Click</span>
-            <span class="shortcut-desc">Delete note</span>
+            <span class="shortcut-key">Two Finger Drag</span>
+            <span class="shortcut-desc">Scroll view</span>
         </div>
         <div class="shortcut-item">
-            <span class="shortcut-key">Drag edges</span>
-            <span class="shortcut-desc">Resize note</span>
+            <span class="shortcut-key">Pinch</span>
+            <span class="shortcut-desc">Zoom in/out</span>
         </div>
     </div>
 </div>`;
@@ -553,22 +589,34 @@ function showShortcuts() {
  */
 function showAbout() {
     const about = `
-That 72edo Piano Roll
-Version 1.1
-
-A microtonal piano roll sequencer supporting 72 equal divisions of the octave.
-
-Features:
-- 72edo tuning system with 12 cents per step
-- Organya (.org) file import
-- Multi-track sequencing
-- Loop playback
-- 100 melodic instruments + 6 drum shots
-
-Sounds from Org Maker
-Sample music by Pixel
-
-Created with ❤️ for microtonal music exploration.`;
+<div class="about-container">
+    <h2 style="margin-top: 0; color: #4a9eff;">that72.org</h2>
+    <p style="color: #ccc; margin-bottom: 20px;">Version 2.0</p>
+    
+    <p>A microtonal piano roll sequencer featuring 72 equal divisions of the octave (72-EDO), 
+    providing precise control with 16.67 cents per step for exploring xenharmonic music.</p>
+    
+    <h3>Key Features</h3>
+    <ul style="list-style: none; padding: 0;">
+        <li>• 72-EDO tuning system across 8 octaves</li>
+        <li>• Import Organya (.org) and MIDI (.mid) files</li>
+        <li>• 100 unique wavetable instruments + 6 drum samples</li>
+        <li>• Per-note velocity and pan control</li>
+        <li>• Multi-touch support for mobile devices</li>
+        <li>• 256 measures with adjustable loop points</li>
+        <li>• Real-time visual feedback with follow mode</li>
+    </ul>
+    
+    <h3>Credits</h3>
+    <p>Wavetable synthesis engine and instruments from Org Maker<br>
+    Cave Story music by Daisuke "Pixel" Amaya<br>
+    Classical MIDI arrangements from various sources</p>
+    
+    <p style="margin-top: 20px; color: #888; font-size: 12px;">
+    Built with Web Audio API • Open source on GitHub<br>
+    Created for microtonal music exploration and composition
+    </p>
+</div>`;
     
     modalManager.show('infoModal', {
         title: 'About',

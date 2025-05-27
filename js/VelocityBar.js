@@ -171,6 +171,10 @@ export class VelocityBar {
         // Draw note velocity bars
         const notes = this.pianoRoll.noteManager.notes;
         for (const note of notes) {
+            // Skip if track is hidden
+            if (this.pianoRoll.trackVisibility.get(note.instrument) === false) {
+                continue;
+            }
             const x = note.x;
             const velocity = note.velocity || 100;
             const barHeight = (velocity / 127) * this.canvas.height;

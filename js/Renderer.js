@@ -290,6 +290,11 @@ export class Renderer {
         
         // Draw notes grouped by instrument for better batching
         for (const [instrument, notes] of notesByInstrument) {
+            // Skip this instrument if it's hidden
+            if (this.pianoRoll.trackVisibility.get(instrument) === false) {
+                continue;
+            }
+            
             const instrumentColor = this.pianoRoll.getInstrumentColor(instrument);
             
             // Draw all note bodies of this instrument first
@@ -323,6 +328,11 @@ export class Renderer {
         
         // Draw selected notes on top
         for (const note of this.pianoRoll.noteManager.selectedNotes) {
+            // Skip if track is hidden
+            if (this.pianoRoll.trackVisibility.get(note.instrument) === false) {
+                continue;
+            }
+            
             if (note.x + note.width >= viewLeft && note.x <= viewRight &&
                 note.y + note.height >= viewTop && note.y <= viewBottom) {
                 this.drawNote(note);

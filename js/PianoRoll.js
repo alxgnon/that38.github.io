@@ -86,6 +86,9 @@ export class PianoRoll {
         this.instrumentColors = new Map();
         this.instrumentColorIndex = 0;
         
+        // Track visibility
+        this.trackVisibility = new Map(); // instrument name -> boolean
+        
         this.init();
     }
 
@@ -216,6 +219,11 @@ export class PianoRoll {
             const notesInMeasure = this.noteManager.getNotesInMeasures(displayMeasure, displayMeasure + 1);
             
             for (const note of notesInMeasure) {
+                // Skip if track is hidden
+                if (this.trackVisibility.get(note.instrument) === false) {
+                    continue;
+                }
+                
                 // Check if note actually starts within this measure's boundaries
                 if (note.x >= measureStartX && note.x < measureStartX + measureWidth) {
                     const noteOffsetX = note.x - measureStartX;
@@ -513,11 +521,13 @@ export class PianoRoll {
         this.noteManager.notes.forEach(note => {
             if (!tracks.has(note.instrument)) {
                 const color = this.getInstrumentColor(note.instrument);
+                // Check if we have a visibility state, default to true
+                const visible = this.trackVisibility.get(note.instrument) !== false;
                 tracks.set(note.instrument, {
                     name: note.instrument,
                     notes: [],
                     color: color,
-                    visible: true,
+                    visible: visible,
                     solo: false,
                     muted: false
                 });
@@ -588,8 +598,17 @@ export class PianoRoll {
     }
     
     toggleTrackVisibility(trackName) {
-        // For now, just redraw - actual hiding will be implemented later
+        // Toggle visibility state
+        const currentVisibility = this.trackVisibility.get(trackName);
+        const newVisibility = currentVisibility === false ? true : false;
+        this.trackVisibility.set(trackName, newVisibility);
+        
+        // Update rendering
+        this.renderer.markFullRedraw();
         this.dirty = true;
+        
+        // Also update pan/velocity bars
+        this.emit('notesChanged');
     }
     
     exportToJSON() {

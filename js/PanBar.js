@@ -181,6 +181,10 @@ export class PanBar {
         // Draw note pan handles
         const notes = this.pianoRoll.noteManager.notes;
         for (const note of notes) {
+            // Skip if track is hidden
+            if (this.pianoRoll.trackVisibility.get(note.instrument) === false) {
+                continue;
+            }
             const x = note.x;
             const pan = note.pan || 0;
             const y = this.canvas.height / 2 - (pan / 100) * (this.canvas.height / 2);

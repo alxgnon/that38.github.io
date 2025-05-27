@@ -1032,6 +1032,12 @@ select:hover {
 
 /* Mobile responsive styles */
 @media (max-width: 768px) {
+    /* Ensure minimum height for critical elements */
+    #menubar { min-height: 32px; }
+    #controls { min-height: 44px; }
+    #velocity-bar { min-height: 40px; }
+    #pan-bar { min-height: 40px; }
+    
     /* Make menu bar more compact on mobile */
     #menubar {
         height: 32px;
@@ -1084,6 +1090,13 @@ select:hover {
         padding: 5px;
         gap: 5px;
         overflow-x: auto;
+        justify-content: space-between;
+    }
+    
+    /* Float loop control to the right on mobile */
+    .control-group.loop {
+        margin-left: auto;
+        flex-shrink: 0;
     }
     
     /* Hide spacer on mobile */
@@ -1143,15 +1156,27 @@ select:hover {
     /* Adjust layout for mobile */
     #container {
         height: 100vh;
+        height: 100dvh; /* Dynamic viewport height for mobile browsers */
         display: flex;
         flex-direction: column;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        overflow: hidden;
     }
     
     #canvas-container {
         flex: 1;
         min-height: 0;
-        /* Account for menu bar, controls, pan bar, and velocity bar */
-        height: calc(100vh - 32px - 44px - 40px - 40px);
+        overflow: hidden;
+    }
+    
+    /* Ensure bars stay visible */
+    #velocity-bar,
+    #pan-bar {
+        flex-shrink: 0; /* Prevent bars from shrinking */
     }
     
     /* Show mobile-only elements */

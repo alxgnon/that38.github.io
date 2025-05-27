@@ -18,6 +18,7 @@ import { InputHandler } from './InputHandler.js';
 import { Renderer } from './Renderer.js';
 import { OrgParser } from './OrgParser.js';
 import { MidiParser } from './MidiParser.js';
+import PlaybackEngine from './PlaybackEngine.js';
 
 /**
  * Main PianoRoll class - coordinates all components
@@ -27,8 +28,20 @@ export class PianoRoll {
         this.canvas = canvas;
         
         // Initialize components
-        this.audioEngine = new AudioEngine();
         this.noteManager = new NoteManager();
+        
+        // Initialize playback engine
+        this.playbackEngine = new PlaybackEngine({
+            wavetablePath: 'wavetable.bin',  // Use the correct path
+            onNoteStart: (note) => this.onNoteStart(note),
+            onNoteEnd: (note) => this.onNoteEnd(note),
+            onMeasureChange: (measure) => this.onMeasureChange(measure),
+            onStop: () => this.onPlaybackStop()
+        });
+        
+        // For backward compatibility
+        this.audioEngine = this.playbackEngine.getAudioEngine();
+        
         this.inputHandler = new InputHandler(this);
         this.renderer = new Renderer(canvas, this);
         
@@ -73,28 +86,25 @@ export class PianoRoll {
         this.showFPS = true;
         this.followMode = true;
         
-        // Playback
+        // Playback UI state
         this.playingNotes = new Map();
-        this.scheduledNotes = [];
-        this.playbackStartTime = 0;
-        this.playbackStartMeasure = 0;
-        this.lastScheduledEndTime = 0;
-        this.lastScheduledMeasure = 0;
-        this.scheduleTimeout = null;
         
         // Instrument colors
         this.instrumentColors = new Map();
         this.instrumentColorIndex = 0;
         
-        // Track visibility
-        this.trackVisibility = new Map(); // instrument name -> boolean
+        // Track visibility - delegate to playback engine
+        Object.defineProperty(this, 'trackVisibility', {
+            get: () => this.playbackEngine.trackVisibility,
+            set: (val) => { this.playbackEngine.trackVisibility = val; }
+        });
         
         this.init();
     }
 
     async init() {
         this.resize();
-        await this.audioEngine.loadWavetable();
+        await this.playbackEngine.init();
         await this.initializeSamples();
         this.dirty = true; // Trigger initial draw
         
@@ -160,34 +170,12 @@ export class PianoRoll {
     }
 
     updatePlayback() {
-        const currentTime = this.audioEngine.audioContext.currentTime;
-        const elapsedTime = currentTime - this.playbackStartTime;
-        const measuresElapsed = Math.floor(elapsedTime / (this.measureDuration / 1000));
-        
-        // Update current measure for display
-        let newMeasure = this.playbackStartMeasure + measuresElapsed;
-        
-        // Handle looping
-        if (this.loopEnabled && newMeasure >= this.loopEnd) {
-            const loopLength = this.loopEnd - this.loopStart;
-            newMeasure = this.loopStart + ((newMeasure - this.loopStart) % loopLength);
-        }
-        
-        if (newMeasure !== this.currentMeasure) {
-            this.currentMeasure = newMeasure;
-            
-            // Snap to current measure in follow mode
-            if (this.followMode) {
-                this.scrollToMeasure();
-            }
-        }
-        
-        this.dirty = true;
-        
-        // Emit playback update for pan/velocity bars
-        this.emit('playbackUpdate', { currentMeasure: this.currentMeasure });
+        // Playback state is now managed by PlaybackEngine through callbacks
+        // This method is kept for compatibility but does nothing
     }
 
+    // Note scheduling is now handled by PlaybackEngine
+    /*
     scheduleNotes() {
         const currentTime = this.audioEngine.audioContext.currentTime;
         const lookAheadTime = 0.1; // 100ms lookahead
@@ -262,7 +250,9 @@ export class PianoRoll {
             }
         }, 50); // Check every 50ms
     }
+    */
 
+    /*
     scheduleNoteAtTime(note, startTime, duration) {
         // Calculate tick duration for automation timing
         // Use the actual ms per tick from the org file if available
@@ -293,6 +283,7 @@ export class PianoRoll {
             }
         });
     }
+    */
 
     play() {
         if (!this.isPlaying) {
@@ -301,8 +292,6 @@ export class PianoRoll {
             if (!this.isPaused) {
                 // Starting fresh - always start from beginning
                 this.currentMeasure = 0;
-                this.lastScheduledEndTime = 0;
-                this.lastScheduledMeasure = 0;
                 
                 // Update scroll position if in follow mode
                 if (this.followMode) {
@@ -311,7 +300,12 @@ export class PianoRoll {
             }
             
             this.isPaused = false;
-            this.scheduleNotes();
+            
+            // Update playback engine with current notes and settings
+            this.playbackEngine.loadNotes(this.noteManager.notes);
+            this.playbackEngine.setTempo(this.currentBPM);
+            this.playbackEngine.setLoop(this.loopEnabled, this.loopStart, this.loopEnd);
+            this.playbackEngine.play(this.currentMeasure);
         }
     }
 
@@ -320,12 +314,7 @@ export class PianoRoll {
             this.isPaused = true;
             this.isPlaying = false;
             
-            // Cancel scheduling
-            if (this.scheduleTimeout) {
-                clearTimeout(this.scheduleTimeout);
-                this.scheduleTimeout = null;
-            }
-            
+            this.playbackEngine.pause();
             this.stopAllPlayingNotes();
         }
     }
@@ -334,38 +323,33 @@ export class PianoRoll {
         this.isPlaying = false;
         this.isPaused = false;
         this.currentMeasure = 0;
-        this.lastScheduledEndTime = 0;
-        this.lastScheduledMeasure = 0;
         
-        // Cancel scheduling
-        if (this.scheduleTimeout) {
-            clearTimeout(this.scheduleTimeout);
-            this.scheduleTimeout = null;
-        }
+        this.playbackEngine.stop();
         
-        this.stopAllPlayingNotes();
+        // Return to start
+        this.scrollX = 0;
+        this.emit('scroll', { scrollX: this.scrollX, scrollY: this.scrollY });
         this.dirty = true;
     }
 
     stopAllPlayingNotes() {
-        for (const [note, key] of this.playingNotes) {
-            this.audioEngine.stopNote(key);
-        }
+        // Clear visual indicators
         this.playingNotes.clear();
-        this.scheduledNotes = [];
+        this.dirty = true;
     }
 
     setTempo(bpm) {
         this.currentBPM = bpm;
         this.beatDuration = 60000 / bpm;
         this.measureDuration = this.beatDuration * this.beatsPerMeasure;
-        this.audioEngine.setBPM(bpm);
+        this.playbackEngine.setTempo(bpm);
     }
 
     setLoop(enabled, start = null, end = null) {
         this.loopEnabled = enabled;
         if (start !== null) this.loopStart = start;
         if (end !== null) this.loopEnd = end;
+        this.playbackEngine.setLoop(enabled, start, end);
         this.renderer.markFullRedraw();
     }
 
@@ -601,7 +585,7 @@ export class PianoRoll {
         // Toggle visibility state
         const currentVisibility = this.trackVisibility.get(trackName);
         const newVisibility = currentVisibility === false ? true : false;
-        this.trackVisibility.set(trackName, newVisibility);
+        this.playbackEngine.setTrackVisibility(trackName, newVisibility);
         
         // Update rendering
         this.renderer.markFullRedraw();
@@ -744,6 +728,36 @@ export class PianoRoll {
         if (index > -1) {
             this.listeners[event].splice(index, 1);
         }
+    }
+    
+    // Playback Engine Callbacks
+    onNoteStart(note) {
+        this.playingNotes.set(note, true);
+        this.dirty = true;
+    }
+    
+    onNoteEnd(note) {
+        this.playingNotes.delete(note);
+        this.dirty = true;
+    }
+    
+    onMeasureChange(measure) {
+        this.currentMeasure = measure;
+        
+        // Snap to current measure in follow mode
+        if (this.followMode) {
+            this.scrollToMeasure();
+        }
+        
+        this.dirty = true;
+        this.emit('playbackUpdate', { currentMeasure: this.currentMeasure });
+    }
+    
+    onPlaybackStop() {
+        this.isPlaying = false;
+        this.isPaused = false;
+        this.playingNotes.clear();
+        this.dirty = true;
     }
     
     emit(event, data) {

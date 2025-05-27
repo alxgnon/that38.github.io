@@ -474,7 +474,9 @@ export class PianoRoll {
                     duration: duration,
                     velocity: note.velocity,
                     pan: note.pan,
-                    instrument: note.instrument
+                    instrument: note.instrument,
+                    volumeAutomation: note.volumeAutomation || null,
+                    panAutomation: note.panAutomation || null
                 };
             })
         };
@@ -530,7 +532,9 @@ export class PianoRoll {
                             key: noteData.pitch,
                             velocity: noteData.velocity || DEFAULT_VELOCITY,
                             pan: noteData.pan || 0,
-                            instrument: noteData.instrument || 'M00'
+                            instrument: noteData.instrument || 'M00',
+                            volumeAutomation: noteData.volumeAutomation || null,
+                            panAutomation: noteData.panAutomation || null
                         });
                     } else {
                         // Handle old format (x/y/width/height) for backwards compatibility

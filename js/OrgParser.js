@@ -87,7 +87,6 @@ export class OrgParser {
         
         const instruments = [];
         
-        
         for (let i = 0; i < 16; i++) {
             const freq = view.getUint16(offset + i * 6, true);
             const wave = view.getUint8(offset + i * 6 + 2);
@@ -236,7 +235,15 @@ export class OrgParser {
         const notes = [];
         const activeNotes = new Map(); // Track active notes by key
         
+        
         events.forEach(event => {
+            // Clean up notes that have ended before this event
+            for (const [key, activeNote] of activeNotes) {
+                if (event.position >= activeNote.endPos) {
+                    activeNotes.delete(key);
+                }
+            }
+            
             if (event.key !== 255) {
                 // New note starts
                 const x = PIANO_KEY_WIDTH + (event.position * pixelsPerTick);
@@ -276,7 +283,7 @@ export class OrgParser {
                 notes.push(noteData);
                 
             } else {
-                // Volume/pan change event
+                // Volume/pan change event (key=255)
                 // Find which note this applies to
                 for (const [key, activeNote] of activeNotes) {
                     if (event.position >= activeNote.startPos && 

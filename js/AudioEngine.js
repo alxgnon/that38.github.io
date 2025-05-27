@@ -227,6 +227,7 @@ export class AudioEngine {
      * @param {number} duration - Note duration in seconds
      */
     async playNote(keyNumber, velocity = 100, sampleName, isGlissando = false, pan = 0, when = 0, duration = 0, pipi = null, volumeAutomation = null, panAutomation = null, freqAdjust = 0) {
+        
         // For glissando with portamento, update existing note's pitch
         if (isGlissando && this.currentGlissandoNote) {
             this.updateGlissandoPitch(keyNumber, sampleName);
@@ -342,13 +343,21 @@ export class AudioEngine {
                 const maxTick = Math.max(...sortedAutomation.map(p => p.tick), 1);
                 const tickDuration = duration / maxTick;
                 
-                sortedAutomation.forEach(point => {
+                sortedAutomation.forEach((point, index) => {
                     const time = startTime + (point.tick * tickDuration);
                     const vol = point.volume * ORG_VELOCITY_SCALE;
                     const automationVolume = Math.pow(10, ((vol - 255) * 8) / 2000);
                     
-                    // Use linear ramp for smooth transitions
-                    gain.gain.linearRampToValueAtTime(automationVolume, time);
+                    // For gating effects, use setValueAtTime for instant changes
+                    // instead of ramping which can make it sound mushy
+                    if (index === 0) {
+                        // First point - ramp from current value
+                        gain.gain.setValueAtTime(gain.gain.value, time - 0.001);
+                        gain.gain.linearRampToValueAtTime(automationVolume, time);
+                    } else {
+                        // Subsequent points - instant change for tighter gating
+                        gain.gain.setValueAtTime(automationVolume, time);
+                    }
                 });
             }
             
@@ -376,8 +385,8 @@ export class AudioEngine {
                 // Let drums play out naturally
             } else {
                 // Schedule note off with release envelope
-                // Use shorter release for very short notes
-                const releaseTime = Math.min(0.1, duration * 0.2); // Max 100ms or 20% of note duration
+                // Use very short release to prevent clicks but keep it subtle
+                const releaseTime = Math.min(0.01, duration * 0.1); // Max 10ms or 10% of note duration
                 
                 // Ensure we have enough time for the release
                 if (stopTime - releaseTime > startTime + 0.002) {
@@ -453,12 +462,17 @@ export class AudioEngine {
             const drumFreq = clampedKey * 800 + 100;
             return drumFreq / BASE_SAMPLE_RATE;
         } else {
-            // Apply frequency adjustment (instrument pitch bend)
+            // Apply frequency adjustment using Organya's pitch system
+            // The document shows pitch affects sampling rate linearly
+            // But in practice, small adjustments work best
+            const PITCH_ADJUST_SCALE = 0.05; // 5% strength gave good results
+            const pitchValue = freqAdjust + 1000;
+            const pitchMultiplier = 1.0 + (pitchValue - 1000) / 1000 * PITCH_ADJUST_SCALE;
+            
             const freq = this.getFrequency(keyNumber);
-            const adjustedFreq = freq + freqAdjust;
             const baseKey = 4 * NOTES_PER_OCTAVE;
             const baseFreq = this.getFrequency(baseKey);
-            return (adjustedFreq / baseFreq) * 2 * Math.sqrt(2);
+            return (freq / baseFreq) * 2 * Math.sqrt(2) * pitchMultiplier;
         }
     }
 

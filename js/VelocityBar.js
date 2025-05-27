@@ -215,6 +215,7 @@ export class VelocityBar {
                 this.ctx.arc(x, this.canvas.height - barHeight, 7, 0, Math.PI * 2);
                 this.ctx.stroke();
             }
+            
         }
         
         this.ctx.restore();

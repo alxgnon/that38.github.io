@@ -29,6 +29,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     if (velocityCanvas) {
         velocityBar = new VelocityBar(velocityCanvas, pianoRoll);
+        pianoRoll.velocityBar = velocityBar;
     }
     
     
@@ -323,8 +324,24 @@ async function handleClearAll() {
     if (confirmed) {
         pianoRoll.noteManager.clearAll();
         pianoRoll.stop();
+        
+        // Reset loop settings
+        pianoRoll.loopEnabled = false;
+        pianoRoll.loopStart = 0;
+        pianoRoll.loopEnd = 4;
+        document.getElementById('loopBtn').classList.remove('active');
+        document.getElementById('loopStartInput').value = 1;
+        document.getElementById('loopEndInput').value = 5;
+        
+        // Reset tempo to default
+        pianoRoll.setTempo(120);
+        
+        // Clear filename
+        pianoRoll.currentFilename = null;
+        pianoRoll.orgTrackInfo = null;
+        
         pianoRoll.dirty = true;
-        modalManager.notify('All notes cleared', 'info');
+        modalManager.notify('New project created', 'info');
     }
 }
 

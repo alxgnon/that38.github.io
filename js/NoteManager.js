@@ -31,6 +31,9 @@ export class NoteManager {
             pan: noteData.pan || 0,
             instrument: noteData.instrument,
             pipi: noteData.pipi !== undefined ? noteData.pipi : null,
+            volumeAutomation: noteData.volumeAutomation || [],
+            panAutomation: noteData.panAutomation || [],
+            freqAdjust: noteData.freqAdjust || 0,
             id: this.generateNoteId()
         };
         
@@ -202,6 +205,9 @@ export class NoteManager {
                 pan: note.pan,
                 instrument: note.instrument,
                 pipi: note.pipi,
+                volumeAutomation: note.volumeAutomation ? [...note.volumeAutomation] : [],
+                panAutomation: note.panAutomation ? [...note.panAutomation] : [],
+                freqAdjust: note.freqAdjust || 0,
                 relativeX: note.x - minX,
                 relativeY: note.y - minY,
                 id: undefined // Will get new ID when pasted

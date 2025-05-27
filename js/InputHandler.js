@@ -338,6 +338,10 @@ export class InputHandler {
         if (newHoveredRow !== this.pianoRoll.hoveredRow) {
             this.pianoRoll.hoveredRow = newHoveredRow;
             this.pianoRoll.dirty = true;
+            // Invalidate piano keys cache when hover changes
+            if (this.pianoRoll.renderer) {
+                this.pianoRoll.renderer.pianoKeysCacheInvalid = true;
+            }
         }
         
         // Handle different drag modes

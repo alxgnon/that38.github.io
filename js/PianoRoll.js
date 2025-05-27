@@ -346,6 +346,7 @@ export class PianoRoll {
         this.loopEnabled = enabled;
         if (start !== null) this.loopStart = start;
         if (end !== null) this.loopEnd = end;
+        this.renderer.markFullRedraw();
     }
 
     snapXToGrid(x) {

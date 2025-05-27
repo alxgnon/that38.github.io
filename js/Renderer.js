@@ -25,14 +25,60 @@ export class Renderer {
         // Note name patterns
         this.noteNames = ['C', 'C♯', 'D', 'D♯', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'A♯', 'B'];
         this.microtonalMarkers = ['', '↑', '⇈', '⇊', '↓', '↓↓'];
+        
+        // Cached canvases for static elements
+        this.gridCache = null;
+        this.pianoKeysCache = null;
+        this.lastGridScrollX = -1;
+        this.lastGridScrollY = -1;
+        this.lastPianoScrollY = -1;
+        
+        // Dirty regions tracking
+        this.dirtyRegions = [];
+        this.fullRedraw = true;
+        
+        // Frame skipping
+        this.targetFPS = 60;
+        this.frameInterval = 1000 / this.targetFPS;
+        this.lastDrawTime = 0;
     }
 
     /**
-     * Main draw function
+     * Main draw function with smart rendering
      */
     draw() {
         const now = performance.now();
         
+        // Frame skipping - skip if we're drawing too frequently
+        if (now - this.lastDrawTime < this.frameInterval * 0.8) {
+            return;
+        }
+        this.lastDrawTime = now;
+        
+        // Check if we need full redraw
+        if (this.fullRedraw || this.scrollChanged()) {
+            this.fullDraw(now);
+        } else {
+            this.partialDraw(now);
+        }
+        
+        this.fullRedraw = false;
+        this.dirtyRegions = [];
+    }
+    
+    /**
+     * Check if scroll position changed significantly
+     */
+    scrollChanged() {
+        const scrollThreshold = 5; // pixels
+        return Math.abs(this.pianoRoll.scrollX - this.lastGridScrollX) > scrollThreshold ||
+               Math.abs(this.pianoRoll.scrollY - this.lastGridScrollY) > scrollThreshold;
+    }
+    
+    /**
+     * Full redraw of the canvas
+     */
+    fullDraw(now) {
         // Clear canvas
         this.ctx.fillStyle = COLORS.background;
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
@@ -67,12 +113,25 @@ export class Renderer {
             this.drawFPS();
         }
         
+        // Update scroll positions
+        this.lastGridScrollX = this.pianoRoll.scrollX;
+        this.lastGridScrollY = this.pianoRoll.scrollY;
+        
         // Update FPS counter
         this.updateFPS(now);
     }
+    
+    /**
+     * Partial redraw only dirty regions
+     */
+    partialDraw(now) {
+        // For now, just do a full draw
+        // TODO: Implement partial redraw based on dirty regions
+        this.fullDraw(now);
+    }
 
     /**
-     * Draw grid lines
+     * Draw grid lines with culling optimization
      */
     drawGrid() {
         const startX = Math.max(0, this.pianoRoll.scrollX - VISIBLE_AREA_PADDING);
@@ -82,30 +141,43 @@ export class Renderer {
         const endY = Math.min(this.pianoRoll.totalHeight, 
             this.pianoRoll.scrollY + this.canvas.height + VISIBLE_AREA_PADDING);
         
-        // Vertical lines (beats)
+        // Batch vertical lines for better performance
+        this.ctx.save();
+        
+        // Draw all thin lines first
         this.ctx.strokeStyle = COLORS.grid;
         this.ctx.lineWidth = 1;
+        this.ctx.beginPath();
         
         for (let x = PIANO_KEY_WIDTH; x < endX; x += GRID_WIDTH) {
             if (x < startX) continue;
             
-            // Stronger lines for measure boundaries
             const beatIndex = (x - PIANO_KEY_WIDTH) / GRID_WIDTH;
-            if (beatIndex % BEATS_PER_MEASURE === 0) {
-                this.ctx.strokeStyle = '#444';
-                this.ctx.lineWidth = 2;
-            } else {
-                this.ctx.strokeStyle = COLORS.grid;
-                this.ctx.lineWidth = 1;
+            if (beatIndex % BEATS_PER_MEASURE !== 0) {
+                this.ctx.moveTo(x, startY);
+                this.ctx.lineTo(x, endY);
             }
-            
-            this.ctx.beginPath();
-            this.ctx.moveTo(x, startY);
-            this.ctx.lineTo(x, endY);
-            this.ctx.stroke();
         }
+        this.ctx.stroke();
         
-        // No horizontal lines in the note area
+        // Draw measure lines separately (thicker)
+        this.ctx.strokeStyle = '#444';
+        this.ctx.lineWidth = 2;
+        this.ctx.beginPath();
+        
+        const measureWidth = GRID_WIDTH * BEATS_PER_MEASURE;
+        const firstMeasure = Math.floor((startX - PIANO_KEY_WIDTH) / measureWidth);
+        const startMeasureX = PIANO_KEY_WIDTH + firstMeasure * measureWidth;
+        
+        for (let x = startMeasureX; x < endX; x += measureWidth) {
+            if (x >= startX) {
+                this.ctx.moveTo(x, startY);
+                this.ctx.lineTo(x, endY);
+            }
+        }
+        this.ctx.stroke();
+        
+        this.ctx.restore();
     }
 
     /**
@@ -188,19 +260,62 @@ export class Renderer {
     }
 
     /**
-     * Draw all notes
+     * Draw all notes with culling and batching
      */
     drawNotes() {
-        const startMeasure = Math.floor((this.pianoRoll.scrollX - VISIBLE_AREA_PADDING) / 
-            (GRID_WIDTH * BEATS_PER_MEASURE));
-        const endMeasure = Math.ceil((this.pianoRoll.scrollX + this.canvas.width + VISIBLE_AREA_PADDING) / 
-            (GRID_WIDTH * BEATS_PER_MEASURE));
+        const viewLeft = this.pianoRoll.scrollX - VISIBLE_AREA_PADDING;
+        const viewRight = this.pianoRoll.scrollX + this.canvas.width + VISIBLE_AREA_PADDING;
+        const viewTop = this.pianoRoll.scrollY - VISIBLE_AREA_PADDING;
+        const viewBottom = this.pianoRoll.scrollY + this.canvas.height + VISIBLE_AREA_PADDING;
+        
+        const startMeasure = Math.floor(viewLeft / (GRID_WIDTH * BEATS_PER_MEASURE));
+        const endMeasure = Math.ceil(viewRight / (GRID_WIDTH * BEATS_PER_MEASURE));
         
         const visibleNotes = this.pianoRoll.noteManager.getNotesInMeasures(startMeasure, endMeasure);
         
-        // Draw notes
+        // Group notes by instrument for batch rendering
+        const notesByInstrument = new Map();
+        
         for (const note of visibleNotes) {
-            this.drawNote(note);
+            // Additional culling - skip notes outside vertical view
+            if (note.y + note.height < viewTop || note.y > viewBottom) {
+                continue;
+            }
+            
+            if (!notesByInstrument.has(note.instrument)) {
+                notesByInstrument.set(note.instrument, []);
+            }
+            notesByInstrument.get(note.instrument).push(note);
+        }
+        
+        // Draw notes grouped by instrument for better batching
+        for (const [instrument, notes] of notesByInstrument) {
+            const instrumentColor = this.pianoRoll.getInstrumentColor(instrument);
+            
+            // Draw all note bodies of this instrument first
+            this.ctx.fillStyle = instrumentColor.note;
+            for (const note of notes) {
+                if (!this.pianoRoll.noteManager.selectedNotes.has(note)) {
+                    this.ctx.fillRect(note.x, note.y, note.width, note.height);
+                }
+            }
+            
+            // Then draw borders
+            this.ctx.strokeStyle = instrumentColor.border;
+            this.ctx.lineWidth = 1;
+            for (const note of notes) {
+                if (!this.pianoRoll.noteManager.selectedNotes.has(note)) {
+                    this.ctx.strokeRect(note.x, note.y, note.width, note.height);
+                }
+            }
+        }
+        
+        // Draw selected notes on top
+        for (const note of this.pianoRoll.noteManager.selectedNotes) {
+            if (note.x + note.width >= viewLeft && note.x <= viewRight &&
+                note.y + note.height >= viewTop && note.y <= viewBottom) {
+                this.drawNote(note);
+            }
         }
     }
 
@@ -258,15 +373,50 @@ export class Renderer {
     }
 
     /**
-     * Draw piano keys
+     * Draw piano keys with caching
      */
     drawPianoKeys() {
-        this.ctx.save();
-        this.ctx.translate(0, -this.pianoRoll.scrollY);
+        // Check if we need to redraw piano keys
+        const needsRedraw = !this.pianoKeysCache || 
+                          this.lastPianoScrollY !== this.pianoRoll.scrollY ||
+                          this.pianoKeysCacheInvalid;
+        
+        if (needsRedraw) {
+            this.drawPianoKeysToCache();
+        }
+        
+        // Draw from cache
+        if (this.pianoKeysCache) {
+            this.ctx.drawImage(this.pianoKeysCache, 0, 0);
+        }
+        
+        this.lastPianoScrollY = this.pianoRoll.scrollY;
+        this.pianoKeysCacheInvalid = false;
+    }
+    
+    /**
+     * Draw piano keys to cache canvas
+     */
+    drawPianoKeysToCache() {
+        if (!this.pianoKeysCache) {
+            this.pianoKeysCache = document.createElement('canvas');
+            this.pianoKeysCache.width = PIANO_KEY_WIDTH;
+            this.pianoKeysCache.height = this.canvas.height;
+        }
+        
+        if (this.pianoKeysCache.height !== this.canvas.height) {
+            this.pianoKeysCache.height = this.canvas.height;
+        }
+        
+        const cacheCtx = this.pianoKeysCache.getContext('2d');
+        cacheCtx.clearRect(0, 0, PIANO_KEY_WIDTH, this.canvas.height);
+        
+        cacheCtx.save();
+        cacheCtx.translate(0, -this.pianoRoll.scrollY);
         
         // Draw background
-        this.ctx.fillStyle = '#2a2a2a';
-        this.ctx.fillRect(0, 0, PIANO_KEY_WIDTH, this.pianoRoll.totalHeight);
+        cacheCtx.fillStyle = '#2a2a2a';
+        cacheCtx.fillRect(0, 0, PIANO_KEY_WIDTH, this.pianoRoll.totalHeight);
         
         // Draw keys
         for (let i = 0; i < this.pianoRoll.numKeys; i++) {
@@ -286,42 +436,42 @@ export class Renderer {
             
             // Draw key
             if (isPressed) {
-                this.ctx.fillStyle = '#4a9eff';
+                cacheCtx.fillStyle = '#4a9eff';
             } else if (isHovered) {
                 // Highlight hovered key
-                this.ctx.fillStyle = isBlackKey ? '#3a3a3a' : '#5a5a5a';
+                cacheCtx.fillStyle = isBlackKey ? '#3a3a3a' : '#5a5a5a';
             } else if (isBlackKey) {
-                this.ctx.fillStyle = COLORS.blackKey;
+                cacheCtx.fillStyle = COLORS.blackKey;
             } else {
-                this.ctx.fillStyle = COLORS.whiteKey;
+                cacheCtx.fillStyle = COLORS.whiteKey;
             }
             
-            this.ctx.fillRect(0, y, PIANO_KEY_WIDTH - 1, NOTE_HEIGHT);
+            cacheCtx.fillRect(0, y, PIANO_KEY_WIDTH - 1, NOTE_HEIGHT);
             
             // Draw key border
-            this.ctx.strokeStyle = COLORS.keyBorder;
-            this.ctx.strokeRect(0, y, PIANO_KEY_WIDTH - 1, NOTE_HEIGHT);
+            cacheCtx.strokeStyle = COLORS.keyBorder;
+            cacheCtx.strokeRect(0, y, PIANO_KEY_WIDTH - 1, NOTE_HEIGHT);
             
             // Draw note label for C notes and at regular intervals
             if ((noteInScale === 0 && microtone === 0) || (keyInOctave % 12 === 0)) {
-                this.ctx.fillStyle = isBlackKey ? '#aaa' : '#fff';
-                this.ctx.font = '10px Arial';
-                this.ctx.textAlign = 'right';
+                cacheCtx.fillStyle = isBlackKey ? '#aaa' : '#fff';
+                cacheCtx.font = '10px Arial';
+                cacheCtx.textAlign = 'right';
                 
                 const noteName = this.noteNames[noteInScale];
                 const microLabel = this.microtonalMarkers[microtone];
                 const label = `${noteName}${octave}${microLabel}`;
                 
-                this.ctx.fillText(label, PIANO_KEY_WIDTH - 5, y + NOTE_HEIGHT - 2);
+                cacheCtx.fillText(label, PIANO_KEY_WIDTH - 5, y + NOTE_HEIGHT - 2);
             }
         }
         
         // Draw border
-        this.ctx.strokeStyle = '#555';
-        this.ctx.lineWidth = 1;
-        this.ctx.strokeRect(0, 0, PIANO_KEY_WIDTH, this.pianoRoll.totalHeight);
+        cacheCtx.strokeStyle = '#555';
+        cacheCtx.lineWidth = 1;
+        cacheCtx.strokeRect(0, 0, PIANO_KEY_WIDTH, this.pianoRoll.totalHeight);
         
-        this.ctx.restore();
+        cacheCtx.restore();
     }
 
     /**
@@ -417,5 +567,13 @@ export class Renderer {
         const container = this.canvas.parentElement;
         this.canvas.width = container.clientWidth;
         this.canvas.height = container.clientHeight;
+        this.fullRedraw = true;
+    }
+    
+    /**
+     * Mark for full redraw
+     */
+    markFullRedraw() {
+        this.fullRedraw = true;
     }
 }

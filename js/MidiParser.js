@@ -83,10 +83,15 @@ export class MidiParser {
      * Read MIDI track chunk
      */
     static readTrackChunk(view, offset) {
+        // Bounds check
+        if (offset + 8 > view.byteLength) {
+            throw new Error(`Invalid MIDI file: track header at offset ${offset} exceeds file size ${view.byteLength}`);
+        }
+        
         // Check "MTrk"
         const chunkType = this.readString(view, offset, 4);
         if (chunkType !== 'MTrk') {
-            throw new Error('Invalid MIDI file: missing MTrk header');
+            throw new Error(`Invalid MIDI file: expected MTrk, got "${chunkType}" at offset ${offset}`);
         }
         
         const chunkSize = view.getUint32(offset + 4, false);
@@ -95,6 +100,11 @@ export class MidiParser {
         const trackEnd = trackOffset + chunkSize;
         let currentTime = 0;
         let runningStatus = null;
+        
+        // Validate track bounds
+        if (trackEnd > view.byteLength) {
+            throw new Error(`Invalid MIDI file: track data exceeds file size (track end: ${trackEnd}, file size: ${view.byteLength})`);
+        }
         
         while (trackOffset < trackEnd) {
             // Read delta time
@@ -185,11 +195,29 @@ export class MidiParser {
                     bytesUsed: 1
                 };
                 
+            case 0xF0: // System Exclusive
+            case 0xF7: // System Exclusive (continuation)
+                // Read length and skip
+                const sysexLength = this.readVariableLength(view, offset);
+                return {
+                    type: 'sysex',
+                    time,
+                    bytesUsed: sysexLength.bytesRead + sysexLength.value
+                };
+                
             case 0xFF: // Meta Event
                 return this.parseMetaEvent(view, offset, time);
                 
             default:
-                // Skip unknown events
+                // Skip unknown events - assume 2 data bytes for channel messages
+                if (eventType >= 0x80 && eventType < 0xF0) {
+                    const dataBytes = (eventType >= 0xC0 && eventType < 0xE0) ? 1 : 2;
+                    return {
+                        type: 'unknown',
+                        time,
+                        bytesUsed: dataBytes
+                    };
+                }
                 return null;
         }
     }
@@ -198,8 +226,29 @@ export class MidiParser {
      * Parse meta event
      */
     static parseMetaEvent(view, offset, time) {
+        // Bounds check
+        if (offset + 2 > view.byteLength) {
+            return { type: 'meta', time, bytesUsed: 1 };
+        }
+        
         const metaType = view.getUint8(offset);
-        const length = view.getUint8(offset + 1);
+        let length;
+        let lengthBytes = 1;
+        
+        // Some meta events use variable length
+        if (metaType === 0x00 || metaType === 0x7F) {
+            const varLength = this.readVariableLength(view, offset + 1);
+            length = varLength.value;
+            lengthBytes = varLength.bytesRead;
+        } else {
+            length = view.getUint8(offset + 1);
+        }
+        
+        // Bounds check for event data
+        if (offset + 1 + lengthBytes + length > view.byteLength) {
+            console.warn(`Meta event at offset ${offset} exceeds file bounds, skipping`);
+            return { type: 'meta', time, bytesUsed: 2 };
+        }
         
         switch (metaType) {
             case 0x51: // Set Tempo
@@ -211,7 +260,7 @@ export class MidiParser {
                     type: 'setTempo',
                     time,
                     tempo: 60000000 / microsecondsPerQuarter, // BPM
-                    bytesUsed: length + 2
+                    bytesUsed: length + 1 + lengthBytes
                 };
                 
             case 0x58: // Time Signature
@@ -220,14 +269,14 @@ export class MidiParser {
                     time,
                     numerator: view.getUint8(offset + 2),
                     denominator: Math.pow(2, view.getUint8(offset + 3)),
-                    bytesUsed: length + 2
+                    bytesUsed: length + 1 + lengthBytes
                 };
                 
             case 0x2F: // End of Track
                 return {
                     type: 'endOfTrack',
                     time,
-                    bytesUsed: length + 2
+                    bytesUsed: length + 1 + lengthBytes
                 };
                 
             default:
@@ -235,7 +284,7 @@ export class MidiParser {
                 return {
                     type: 'meta',
                     time,
-                    bytesUsed: length + 2
+                    bytesUsed: length + 1 + lengthBytes
                 };
         }
     }
@@ -249,9 +298,19 @@ export class MidiParser {
         let byte;
         
         do {
+            // Bounds check
+            if (offset + bytesRead >= view.byteLength) {
+                throw new Error(`Variable length value at offset ${offset} exceeds file bounds`);
+            }
+            
             byte = view.getUint8(offset + bytesRead);
             value = (value << 7) | (byte & 0x7F);
             bytesRead++;
+            
+            // Sanity check - variable length shouldn't exceed 4 bytes
+            if (bytesRead > 4) {
+                throw new Error(`Invalid variable length value at offset ${offset}`);
+            }
         } while (byte & 0x80);
         
         return { value, bytesRead };

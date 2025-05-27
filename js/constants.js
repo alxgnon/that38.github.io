@@ -20,7 +20,7 @@ export const GRID_SUBDIVISIONS = 4; // Each beat divided into 4 parts (16th note
 export const PIANO_KEY_WIDTH = 60;
 export const NOTE_HEIGHT = 3;
 export const GRID_WIDTH = 40;
-export const TOTAL_MEASURES = 128;
+export const TOTAL_MEASURES = 256;
 export const RESIZE_HANDLE_WIDTH = 8; // Pixels from edge to detect resize
 
 // UI constants

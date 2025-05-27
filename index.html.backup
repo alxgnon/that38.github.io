@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>that72.org</title>
-    <link rel="stylesheet" href="css/styles.css?v=20250527122013">
+    <link rel="stylesheet" href="css/styles.css?v=20250527112933">
 </head>
 <body>
     <div id="menubar">
@@ -218,6 +218,6 @@
     </div>
     
     <!-- Load JavaScript modules -->
-    <script type="module" src="js/main.js?v=20250527122013"></script>
+    <script type="module" src="js/main.js?v=20250527112933"></script>
 </body>
 </html>

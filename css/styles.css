@@ -37,13 +37,13 @@ canvas {
 
 /* Controls panel */
 #controls {
-    padding: 10px 20px;
+    padding: 5px 15px;
     display: flex;
-    gap: 20px;
+    gap: 15px;
     background: #333;
     border-bottom: 1px solid #555;
     align-items: center;
-    height: 50px;
+    height: 36px;
 }
 
 /* Control groups */
@@ -55,16 +55,34 @@ canvas {
 
 .control-group.transport {
     gap: 5px;
+    border-right: 1px solid #555;
+    padding-right: 15px;
+    margin-right: 15px;
 }
 
-.control-group.loop {
-    margin-left: auto;
-    padding: 0 15px;
+.control-section {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+.control-group.volume-group {
+    padding: 0;
 }
 
 .control-group.instrument-group {
-    padding: 0 15px;
-    border-left: 1px solid #555;
+    padding: 0;
+}
+
+.control-spacer {
+    flex: 1;
+    min-width: 20px;
+}
+
+.control-group.loop {
+    margin-left: 0;
+    padding-left: 20px;
+    border-left: 1px solid #444;
 }
 
 /* Instrument selector group */
@@ -76,8 +94,8 @@ canvas {
 
 #instrumentColorIndicator {
     display: inline-block;
-    width: 20px;
-    height: 20px;
+    width: 16px;
+    height: 16px;
     border: 2px solid #555;
     border-radius: 3px;
 }
@@ -86,30 +104,43 @@ canvas {
 .loop-range-container {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
     background: #2a2a2a;
-    padding: 5px 10px;
+    padding: 3px 10px;
     border-radius: 4px;
     border: 1px solid #444;
 }
 
 .loop-range-container span {
-    color: #888;
+    color: #aaa;
     font-size: 12px;
 }
 
+.loop-range-container span:first-child {
+    color: #ccc;
+    margin-right: 4px;
+}
+
 .loop-range-container input[type="number"] {
-    width: 35px;
-    background: transparent;
-    border: none;
+    width: 40px;
+    background: #1a1a1a;
+    border: 1px solid #3a3a3a;
     color: #fff;
     text-align: center;
-    font-size: 13px;
+    font-size: 12px;
+    padding: 2px 4px;
+    border-radius: 3px;
+}
+
+.loop-range-container input[type="number"]:focus {
+    outline: none;
+    border-color: #555;
+    background: #222;
 }
 
 /* Button styles */
 button {
-    padding: 8px 16px;
+    padding: 5px 12px;
     background: #333;
     color: #fff;
     border: 1px solid #555;
@@ -118,12 +149,13 @@ button {
     display: flex;
     align-items: center;
     justify-content: center;
+    font-size: 13px;
 }
 
 /* Transport buttons (play/stop) */
 .transport button {
-    padding: 8px 12px;
-    min-width: 36px;
+    padding: 5px 10px;
+    min-width: 32px;
 }
 
 button:hover {
@@ -162,7 +194,7 @@ h1 {
 
 /* Form controls */
 input[type="range"] {
-    width: 120px;
+    width: 100px;
     height: 4px;
     background: #444;
     outline: none;
@@ -194,8 +226,8 @@ input[type="range"]::-moz-range-thumb {
 label {
     display: flex;
     align-items: center;
-    gap: 8px;
-    font-size: 13px;
+    gap: 6px;
+    font-size: 12px;
     color: #ccc;
 }
 
@@ -213,11 +245,12 @@ select {
     background: #2a2a2a;
     color: #fff;
     border: 1px solid #444;
-    padding: 4px 8px;
+    padding: 3px 6px;
     border-radius: 4px;
-    font-size: 13px;
+    font-size: 12px;
     cursor: pointer;
     outline: none;
+    height: 26px;
 }
 
 select:hover {

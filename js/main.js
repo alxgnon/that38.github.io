@@ -284,7 +284,7 @@ function setupSongMenuItems() {
             
             // Check if it's a directory
             if (orgPath.endsWith('/')) {
-                await showSongDirectory(orgPath);
+                await showSongDirectory(orgPath, false);
             } else {
                 await loadOrgFromPath(orgPath);
             }
@@ -302,6 +302,20 @@ function setupSongMenuItems() {
             const midiPath = e.target.getAttribute('data-midi');
             if (midiPath) {
                 await loadMidiFromPath(midiPath);
+                menuManager.closeAll();
+            }
+        });
+    });
+    
+    // MIDI directory links
+    const midiDirLinks = document.querySelectorAll('[data-midi-dir]');
+    midiDirLinks.forEach(link => {
+        link.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            const midiDirPath = e.target.getAttribute('data-midi-dir');
+            if (midiDirPath) {
+                await showSongDirectory(midiDirPath, true);
                 menuManager.closeAll();
             }
         });
@@ -711,7 +725,7 @@ async function loadMidiFromPath(path) {
 /**
  * Show song directory
  */
-async function showSongDirectory(basePath) {
+async function showSongDirectory(basePath, isMidi = false) {
     try {
         const response = await fetch(basePath + 'index.json');
         const songs = await response.json();
@@ -723,13 +737,41 @@ async function showSongDirectory(basePath) {
         songs.forEach(song => {
             const li = document.createElement('li');
             li.className = 'song-item';
-            li.textContent = song.replace('.org', '');
+            
+            // Format display name
+            let displayName = song;
+            if (isMidi) {
+                // Format MIDI filenames for better display
+                displayName = song.replace('.mid', '')
+                    .replace(/_/g, ' ')
+                    .replace(/\b\w/g, l => l.toUpperCase());
+            } else {
+                displayName = song.replace('.org', '');
+            }
+            
+            li.textContent = displayName;
             li.onclick = () => {
-                loadOrgFromPath(basePath + song);
+                if (isMidi) {
+                    loadMidiFromPath(basePath + song);
+                } else {
+                    loadOrgFromPath(basePath + song);
+                }
                 modalManager.close('songModal');
             };
             songList.appendChild(li);
         });
+        
+        // Update modal title based on directory
+        const modalTitle = document.querySelector('#songModal h2');
+        if (modalTitle) {
+            if (isMidi) {
+                modalTitle.textContent = 'Classical Music';
+            } else if (basePath.includes('allbeta')) {
+                modalTitle.textContent = 'Cave Story Beta Songs';
+            } else {
+                modalTitle.textContent = 'Cave Story Songs';
+            }
+        }
         
         // Show modal
         modalManager.show('songModal');

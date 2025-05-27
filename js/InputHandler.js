@@ -35,7 +35,13 @@ export class InputHandler {
         this.ctrlKeyHeld = false;
         this.altKeyHeld = false;
         
+        // MIDI state
+        this.midiAccess = null;
+        this.midiInputs = [];
+        this.midiNoteMap = new Map(); // Maps MIDI note numbers to playing notes
+        
         this.setupEventListeners();
+        this.setupMIDI();
     }
 
     /**
@@ -931,6 +937,139 @@ export class InputHandler {
                 scrollY: this.pianoRoll.scrollY 
             });
             this.pianoRoll.dirty = true;
+        }
+    }
+    
+    /**
+     * Setup MIDI access
+     */
+    async setupMIDI() {
+        try {
+            // Request MIDI access
+            const midiAccess = await navigator.requestMIDIAccess();
+            this.midiAccess = midiAccess;
+            
+            // Connect to all MIDI inputs
+            this.connectMIDIInputs();
+            
+            // Listen for new devices
+            midiAccess.onstatechange = (e) => {
+                console.log('MIDI device', e.port.name, 'state:', e.port.state);
+                this.connectMIDIInputs();
+            };
+        } catch (error) {
+            console.log('MIDI access not available:', error);
+        }
+    }
+    
+    /**
+     * Connect to all available MIDI inputs
+     */
+    connectMIDIInputs() {
+        if (!this.midiAccess) return;
+        
+        // Clear existing connections
+        this.midiInputs.forEach(input => {
+            input.onmidimessage = null;
+        });
+        this.midiInputs = [];
+        
+        // Connect to all inputs
+        for (const input of this.midiAccess.inputs.values()) {
+            console.log('Connecting to MIDI input:', input.name);
+            input.onmidimessage = (e) => this.handleMIDIMessage(e);
+            this.midiInputs.push(input);
+        }
+    }
+    
+    /**
+     * Handle MIDI messages
+     */
+    handleMIDIMessage(event) {
+        const [status, note, velocity] = event.data;
+        
+        // Parse MIDI message type
+        const messageType = status & 0xF0;
+        const channel = status & 0x0F;
+        
+        switch (messageType) {
+            case 0x90: // Note On
+                if (velocity > 0) {
+                    this.handleMIDINoteOn(note, velocity);
+                } else {
+                    // Note On with velocity 0 is treated as Note Off
+                    this.handleMIDINoteOff(note);
+                }
+                break;
+                
+            case 0x80: // Note Off
+                this.handleMIDINoteOff(note);
+                break;
+        }
+    }
+    
+    /**
+     * Handle MIDI Note On
+     */
+    handleMIDINoteOn(midiNote, velocity) {
+        // Convert MIDI note to 72-EDO key number
+        // MIDI uses 12-EDO, we use 72-EDO (6 steps per semitone)
+        // MIDI note 60 = Middle C = C4
+        // In our 72-EDO system with 8 octaves, C4 should be in the middle
+        // Total keys = 576 (8 octaves × 72 notes)
+        // C4 should be at octave 4, position 0 = key 288 (4 × 72)
+        
+        const midiC4 = 60;
+        const c4KeyNumber = 4 * NOTES_PER_OCTAVE; // 288
+        const keyNumber = c4KeyNumber + (midiNote - midiC4) * 6;
+        
+        // Check if key is within valid range (0-575)
+        if (keyNumber < 0 || keyNumber >= NUM_OCTAVES * NOTES_PER_OCTAVE) {
+            return;
+        }
+        
+        // Play the note
+        this.pianoRoll.playPianoKey(keyNumber, velocity);
+        
+        // Store the mapping (allow multiple notes)
+        if (!this.midiNoteMap.has(midiNote)) {
+            this.midiNoteMap.set(midiNote, new Set());
+        }
+        this.midiNoteMap.get(midiNote).add(keyNumber);
+        
+        // Update visual state
+        this.pressedKeys.add(keyNumber);
+        this.pianoRoll.dirty = true;
+        
+        // Invalidate piano keys cache to show pressed key
+        if (this.pianoRoll.renderer) {
+            this.pianoRoll.renderer.pianoKeysCacheInvalid = true;
+        }
+    }
+    
+    /**
+     * Handle MIDI Note Off
+     */
+    handleMIDINoteOff(midiNote) {
+        // Get the corresponding key numbers (could be multiple)
+        const keyNumbers = this.midiNoteMap.get(midiNote);
+        if (!keyNumbers) return;
+        
+        // Stop all notes for this MIDI note
+        keyNumbers.forEach(keyNumber => {
+            this.pianoRoll.stopPianoKey(keyNumber);
+            this.pressedKeys.delete(keyNumber);
+        });
+        
+        // Remove from mappings
+        this.midiNoteMap.delete(midiNote);
+        
+        // Update visual state
+        this.pianoRoll.dirty = true;
+        
+        // Invalidate piano keys cache to update visual
+        if (this.pianoRoll.renderer) {
+            this.pianoRoll.renderer.pianoKeysCacheInvalid = true;
         }
     }
 }

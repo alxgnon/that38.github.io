@@ -46,6 +46,31 @@ export class AudioEngine {
     setBPM(bpm) {
         this.currentBPM = bpm;
     }
+    
+    /**
+     * Stop a specific note immediately
+     */
+    stopNote(keyNumber) {
+        const note = this.activeNotes.get(keyNumber);
+        if (note) {
+            try {
+                // Fade out quickly to avoid clicks
+                const now = this.audioContext.currentTime;
+                note.gain.gain.cancelScheduledValues(now);
+                note.gain.gain.setValueAtTime(note.gain.gain.value, now);
+                note.gain.gain.linearRampToValueAtTime(0, now + 0.05);
+                
+                // Stop the source after fade
+                note.source.stop(now + 0.05);
+                
+                // Clean up
+                this.activeNotes.delete(keyNumber);
+            } catch (e) {
+                // Note may have already stopped
+                this.activeNotes.delete(keyNumber);
+            }
+        }
+    }
 
     /**
      * Load wavetable data
@@ -379,15 +404,26 @@ export class AudioEngine {
         const isDrum = sampleName.startsWith('ORG_D');
         const targetRate = this.calculatePlaybackRate(keyNumber, sampleName, isDrum, 0);
         
+        // Calculate portamento time based on distance
+        const keyDistance = Math.abs(keyNumber - this.currentGlissandoKey);
+        const portamentoTime = Math.min(0.02, keyDistance * 0.001); // Max 20ms, scale with distance
+        
         // Smooth pitch transition
         const now = this.audioContext.currentTime;
         this.currentGlissandoNote.source.playbackRate.cancelScheduledValues(now);
-        this.currentGlissandoNote.source.playbackRate.setValueAtTime(
-            this.currentGlissandoNote.source.playbackRate.value, now
-        );
-        this.currentGlissandoNote.source.playbackRate.linearRampToValueAtTime(
-            targetRate, now + PORTAMENTO_TIME
-        );
+        
+        if (keyDistance <= 1) {
+            // For adjacent keys, update immediately to avoid chirping
+            this.currentGlissandoNote.source.playbackRate.setValueAtTime(targetRate, now);
+        } else {
+            // For larger jumps, use a quick ramp
+            this.currentGlissandoNote.source.playbackRate.setValueAtTime(
+                this.currentGlissandoNote.source.playbackRate.value, now
+            );
+            this.currentGlissandoNote.source.playbackRate.linearRampToValueAtTime(
+                targetRate, now + portamentoTime
+            );
+        }
         
         // Update the key reference
         this.activeNotes.delete(this.currentGlissandoKey);
@@ -413,18 +449,36 @@ export class AudioEngine {
         const BASE_POINT_FREQS = [33408, 35584, 37632, 39808, 42112, 44672, 47488, 50048, 52992, 56320, 59648, 63232];
         const PERIOD_SIZES = [1024, 512, 256, 128, 64, 32, 16, 8];
         
-        // Convert 72-EDO to octave and pitch class
+        // Convert 72-EDO to octave and pitch class with microtonal precision
         const octave = Math.floor(keyNumber / NOTES_PER_OCTAVE);
         const microtonalPosition = keyNumber % NOTES_PER_OCTAVE;
-        const pitchClassIndex = Math.round(microtonalPosition / 6) % 12;
         
-        // Clamp to valid ranges
+        // Get the exact semitone position within the octave (0-12 with fractions)
+        const exactSemitone = microtonalPosition / 6;
+        const baseSemitone = Math.floor(exactSemitone);
+        const microtonalFraction = exactSemitone - baseSemitone;
+        
+        // Get the base pitch class (0-11)
+        const pitchClass = baseSemitone % 12;
+        
+        // Clamp octave to valid range
         const clampedOctave = Math.max(0, Math.min(7, octave));
-        const clampedPitchClass = Math.max(0, Math.min(11, pitchClassIndex));
         
-        // Calculate Organya frequency
-        const pointFrequency = BASE_POINT_FREQS[clampedPitchClass] + freqAdjust;
-        const organyaFreq = pointFrequency / PERIOD_SIZES[clampedOctave];
+        // Get base frequency for this pitch class
+        const baseFreq = BASE_POINT_FREQS[pitchClass];
+        
+        // For microtonal interpolation, use exponential interpolation
+        // Frequency ratios in equal temperament are exponential, not linear
+        let frequencyMultiplier = 1;
+        if (microtonalFraction > 0) {
+            // Each semitone is a ratio of 2^(1/12)
+            // So each microtone (1/6 of a semitone) is 2^(1/72)
+            frequencyMultiplier = Math.pow(2, microtonalFraction / 12);
+        }
+        
+        // Apply frequency adjustment and microtonal multiplier
+        const finalFreq = (baseFreq + freqAdjust) * frequencyMultiplier;
+        const organyaFreq = finalFreq / PERIOD_SIZES[clampedOctave];
         
         // Convert to playback rate (256 samples per period)
         return (organyaFreq * 256) / this.audioContext.sampleRate;

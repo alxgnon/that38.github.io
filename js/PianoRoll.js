@@ -764,4 +764,35 @@ export class PianoRoll {
         if (!this.listeners || !this.listeners[event]) return;
         this.listeners[event].forEach(callback => callback(data));
     }
+    
+    /**
+     * Play a piano key (for MIDI input)
+     */
+    playPianoKey(keyNumber, velocity = 100) {
+        // Use a unique ID for tracking this preview note
+        const noteId = `preview_${keyNumber}_${Date.now()}`;
+        const playedNote = this.audioEngine.playNote(keyNumber, velocity, this.currentSample, false);
+        
+        // Track the preview note
+        if (!this.previewNotes) {
+            this.previewNotes = new Map();
+        }
+        this.previewNotes.set(keyNumber, { noteId: playedNote, startTime: Date.now() });
+        
+        return playedNote;
+    }
+    
+    /**
+     * Stop a piano key (for MIDI input)
+     */
+    stopPianoKey(keyNumber) {
+        if (!this.previewNotes || !this.previewNotes.has(keyNumber)) return;
+        
+        const previewNote = this.previewNotes.get(keyNumber);
+        if (previewNote) {
+            // Stop the note by clearing it from active notes
+            this.audioEngine.stopNote(keyNumber);
+            this.previewNotes.delete(keyNumber);
+        }
+    }
 }

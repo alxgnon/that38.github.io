@@ -56,7 +56,7 @@ export const COLORS = {
     playhead: '#ff4444',
     text: '#888',
     loopMarker: '#ffaa00',
-    loopBackground: 'rgba(255, 170, 0, 0.05)'
+    loopBackground: 'rgba(255, 170, 0, 0.02)'
 };
 
 // Instrument color palette

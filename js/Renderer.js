@@ -150,9 +150,12 @@ export class Renderer {
         const endMeasure = Math.ceil((this.pianoRoll.scrollX + this.canvas.width) / 
             (GRID_WIDTH * BEATS_PER_MEASURE));
         
+        // Draw measure numbers at the top of the visible area
+        const yPosition = this.pianoRoll.scrollY + 12;
+        
         for (let measure = startMeasure; measure <= endMeasure; measure++) {
             const x = PIANO_KEY_WIDTH + measure * GRID_WIDTH * BEATS_PER_MEASURE;
-            this.ctx.fillText((measure + 1).toString(), x + GRID_WIDTH * 2, 12);
+            this.ctx.fillText((measure + 1).toString(), x + GRID_WIDTH * 2, yPosition);
         }
     }
 

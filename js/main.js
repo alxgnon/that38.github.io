@@ -14,6 +14,15 @@ let panBar = null;
 let velocityBar = null;
 let currentFilename = null;
 
+// Update page title based on current file
+function updatePageTitle() {
+    if (currentFilename) {
+        document.title = `${currentFilename} - that72.org`;
+    } else {
+        document.title = 'that72.org - 72-EDO Composition Tool';
+    }
+}
+
 // Initialize on DOM ready
 document.addEventListener('DOMContentLoaded', async () => {
     // Initialize piano roll
@@ -41,6 +50,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     // Initialize UI state
     updatePlayButton();
+    updatePageTitle();
 });
 
 /**
@@ -346,6 +356,7 @@ async function handleNew() {
         pianoRoll.dirty = true;
         pianoRoll.emit('notesChanged');
         currentFilename = null;
+        updatePageTitle();
         modalManager.notify('New project created', 'info');
     }
 }
@@ -414,6 +425,7 @@ async function handleClearAll() {
         
         // Clear filename
         pianoRoll.currentFilename = null;
+        updatePageTitle();
         pianoRoll.orgTrackInfo = null;
         
         pianoRoll.dirty = true;
@@ -741,6 +753,7 @@ function handleSaveAs() {
                 filename += '.json';
             }
             currentFilename = filename;
+            updatePageTitle();
             downloadSong(filename);
             cleanup();
             modalManager.close('saveAsModal');
@@ -803,6 +816,7 @@ function handleOpen() {
             const text = await file.text();
             pianoRoll.importFromJSON(text);
             currentFilename = file.name;
+            updatePageTitle();
             modalManager.notify('Song loaded successfully', 'info');
         } catch (error) {
             modalManager.notify('Failed to load song: ' + error.message, 'error');
@@ -824,7 +838,8 @@ async function loadOrgFromPath(path) {
         await pianoRoll.loadOrgFile(buffer);
         
         const filename = path.split('/').pop();
-        currentFilename = null;  // Reset filename when loading .org files
+        currentFilename = filename;
+        updatePageTitle();
         modalManager.notify(`Loaded: ${filename}`, 'info');
     } catch (error) {
         modalManager.notify(`Failed to load file: ${error.message}`, 'error');
@@ -843,7 +858,8 @@ async function loadMidiFromPath(path) {
         await pianoRoll.loadMidiFile(buffer);
         
         const filename = path.split('/').pop();
-        currentFilename = null;  // Reset filename when loading MIDI files
+        currentFilename = filename;
+        updatePageTitle();
         modalManager.notify(`Loaded: ${filename}`, 'info');
     } catch (error) {
         modalManager.notify(`Failed to load MIDI file: ${error.message}`, 'error');

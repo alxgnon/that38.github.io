@@ -37,6 +37,7 @@ export class PlaybackEngine {
         // Song data
         this.songData = null;
         this.notes = [];
+        this.orgMsPerTick = null;
         
         // Scheduling
         this.scheduledNotes = [];
@@ -109,9 +110,11 @@ export class PlaybackEngine {
     /**
      * Load notes directly (for editor integration)
      * @param {Array} notes - Array of note objects in editor format
+     * @param {number} orgMsPerTick - Optional ms per tick for ORG files
      */
-    loadNotes(notes) {
+    loadNotes(notes, orgMsPerTick = null) {
         this.notes = notes;
+        this.orgMsPerTick = orgMsPerTick;
         // Don't clear track visibility when loading notes directly
     }
     
@@ -302,6 +305,11 @@ export class PlaybackEngine {
      * Schedule a single note
      */
     async scheduleNoteAtTime(note, startTime, duration) {
+        // Calculate tick duration for automation timing
+        // Use the actual ms per tick from the org file if available
+        const beatDuration = 60 / this.currentBPM;
+        const tickDuration = this.orgMsPerTick ? this.orgMsPerTick / 1000 : beatDuration / 48000; // Convert to seconds
+        
         const noteId = await this.audioEngine.playNote(
             note.key,           // keyNumber
             note.velocity,       // velocity
@@ -314,7 +322,7 @@ export class PlaybackEngine {
             note.volumeAutomation,  // volumeAutomation
             note.panAutomation,     // panAutomation
             note.freqAdjust || 0,   // freqAdjust
-            null                    // tickDuration
+            tickDuration        // tickDuration
         );
         
         this.scheduledNotes.push({

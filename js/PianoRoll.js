@@ -302,7 +302,7 @@ export class PianoRoll {
             this.isPaused = false;
             
             // Update playback engine with current notes and settings
-            this.playbackEngine.loadNotes(this.noteManager.notes);
+            this.playbackEngine.loadNotes(this.noteManager.notes, this.orgMsPerTick);
             this.playbackEngine.setTempo(this.currentBPM);
             this.playbackEngine.setLoop(this.loopEnabled, this.loopStart, this.loopEnd);
             this.playbackEngine.play(this.currentMeasure);

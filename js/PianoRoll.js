@@ -425,6 +425,116 @@ export class PianoRoll {
         }
     }
     
+    // Serialization methods
+    exportToJSON() {
+        const beatWidth = GRID_WIDTH / GRID_SUBDIVISIONS;
+        const measureWidth = GRID_WIDTH * BEATS_PER_MEASURE;
+        
+        const songData = {
+            version: '1.1',
+            name: 'Untitled',
+            tempo: this.currentBPM,
+            timeSignature: `${BEATS_PER_MEASURE}/4`,
+            loop: {
+                enabled: this.loopEnabled,
+                startMeasure: this.loopStart,
+                endMeasure: this.loopEnd
+            },
+            notes: this.noteManager.notes.map(note => {
+                // Convert x position to measure and beat
+                const totalBeats = (note.x - PIANO_KEY_WIDTH) / beatWidth;
+                const measure = Math.floor(totalBeats / (BEATS_PER_MEASURE * GRID_SUBDIVISIONS));
+                const beatInMeasure = totalBeats % (BEATS_PER_MEASURE * GRID_SUBDIVISIONS);
+                
+                // Convert width to duration in beats
+                const duration = note.width / beatWidth;
+                
+                return {
+                    pitch: note.key,
+                    measure: measure,
+                    beat: beatInMeasure,
+                    duration: duration,
+                    velocity: note.velocity,
+                    pan: note.pan,
+                    instrument: note.instrument
+                };
+            })
+        };
+        
+        return JSON.stringify(songData, null, 2);
+    }
+    
+    importFromJSON(jsonString) {
+        try {
+            const songData = JSON.parse(jsonString);
+            
+            // Clear existing notes
+            this.noteManager.clearAll();
+            
+            // Set tempo
+            if (songData.tempo) {
+                this.setTempo(songData.tempo);
+            }
+            
+            // Set loop settings
+            if (songData.loop) {
+                // Handle both old and new format
+                const loopStart = songData.loop.startMeasure !== undefined ? 
+                    songData.loop.startMeasure : songData.loop.start;
+                const loopEnd = songData.loop.endMeasure !== undefined ? 
+                    songData.loop.endMeasure : songData.loop.end;
+                    
+                this.setLoop(
+                    songData.loop.enabled,
+                    loopStart,
+                    loopEnd
+                );
+            }
+            
+            // Import notes
+            if (songData.notes && Array.isArray(songData.notes)) {
+                const beatWidth = GRID_WIDTH / GRID_SUBDIVISIONS;
+                const measureWidth = GRID_WIDTH * BEATS_PER_MEASURE;
+                
+                songData.notes.forEach(noteData => {
+                    // Handle new format (measure/beat/duration)
+                    if (noteData.measure !== undefined) {
+                        const x = PIANO_KEY_WIDTH + (noteData.measure * measureWidth) + (noteData.beat * beatWidth);
+                        const y = (NUM_OCTAVES * NOTES_PER_OCTAVE - 1 - noteData.pitch) * NOTE_HEIGHT;
+                        const width = noteData.duration * beatWidth;
+                        
+                        this.noteManager.createNote({
+                            x: x,
+                            y: y,
+                            width: width,
+                            height: NOTE_HEIGHT,
+                            key: noteData.pitch,
+                            velocity: noteData.velocity || DEFAULT_VELOCITY,
+                            pan: noteData.pan || 0,
+                            instrument: noteData.instrument || 'M00'
+                        });
+                    } else {
+                        // Handle old format (x/y/width/height) for backwards compatibility
+                        this.noteManager.createNote(noteData);
+                    }
+                });
+            }
+            
+            // Update UI
+            document.getElementById('loopBtn').classList.toggle('active', this.loopEnabled);
+            document.getElementById('loopStartInput').value = this.loopStart + 1;
+            document.getElementById('loopEndInput').value = this.loopEnd + 1;
+            
+            this.dirty = true;
+            this.renderer.markFullRedraw();
+            this.emit('notesChanged');
+            
+            return true;
+        } catch (error) {
+            throw new Error('Invalid song file format');
+        }
+    }
+    
     // Event system
     addEventListener(event, callback) {
         if (!this.listeners) {

@@ -206,6 +206,11 @@ export class MenuManager {
         };
 
         document.addEventListener('keydown', (e) => {
+            // Skip if typing in an input field or textarea
+            if (e.target.matches('input, textarea')) {
+                return;
+            }
+            
             const keyPressed = e.key.toLowerCase();
             const ctrlOrCmd = navigator.platform.match('Mac') ? e.metaKey : e.ctrlKey;
 

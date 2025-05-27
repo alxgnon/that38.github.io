@@ -11,6 +11,7 @@ const menuManager = new MenuManager();
 let pianoRoll = null;
 let panBar = null;
 let velocityBar = null;
+let currentFilename = null;
 
 // Initialize on DOM ready
 document.addEventListener('DOMContentLoaded', async () => {
@@ -135,6 +136,7 @@ function setupModals() {
         }
     });
     modalManager.register('confirmModal');
+    modalManager.register('saveAsModal');
 }
 
 /**
@@ -148,6 +150,21 @@ function setupMenus() {
                 id: 'menu-new',
                 handler: () => handleNew(),
                 shortcut: 'Ctrl+N'
+            },
+            {
+                id: 'menu-open',
+                handler: () => handleOpen(),
+                shortcut: 'Ctrl+O'
+            },
+            {
+                id: 'menu-save',
+                handler: () => handleSave(),
+                shortcut: 'Ctrl+S'
+            },
+            {
+                id: 'menu-save-as',
+                handler: () => handleSaveAs(),
+                shortcut: 'Ctrl+Shift+S'
             },
             {
                 id: 'menu-import-org',
@@ -176,8 +193,8 @@ function setupMenus() {
             },
             {
                 id: 'menu-delete',
-                handler: () => handleDelete(),
-                shortcut: 'Delete'
+                handler: () => handleDelete()
+                // Remove shortcut to allow Delete key to work in input fields
             },
             {
                 id: 'menu-select-all',
@@ -272,6 +289,7 @@ async function handleNew() {
         pianoRoll.stop();
         pianoRoll.dirty = true;
         pianoRoll.emit('notesChanged');
+        currentFilename = null;
         modalManager.notify('New project created', 'info');
     }
 }
@@ -476,6 +494,114 @@ Created with ❤️ for microtonal music exploration.`;
 }
 
 /**
+ * Save song as JSON file
+ */
+function handleSave() {
+    if (currentFilename) {
+        downloadSong(currentFilename);
+    } else {
+        handleSaveAs();
+    }
+}
+
+/**
+ * Save song with custom filename
+ */
+function handleSaveAs() {
+    const input = document.getElementById('saveAsFilename');
+    input.value = currentFilename || 'song.json';
+    
+    // Set up event handlers
+    const modal = document.getElementById('saveAsModal');
+    const confirmBtn = modal.querySelector('.save-as-confirm');
+    const cancelBtn = modal.querySelector('.save-as-cancel');
+    const closeBtn = modal.querySelector('.modal-close');
+    
+    const cleanup = () => {
+        confirmBtn.removeEventListener('click', handleConfirm);
+        cancelBtn.removeEventListener('click', handleCancel);
+        closeBtn.removeEventListener('click', handleCancel);
+    };
+    
+    const handleConfirm = () => {
+        let filename = input.value.trim();
+        if (filename) {
+            if (!filename.endsWith('.json')) {
+                filename += '.json';
+            }
+            currentFilename = filename;
+            downloadSong(filename);
+            cleanup();
+            modalManager.close('saveAsModal');
+        }
+    };
+    
+    const handleCancel = () => {
+        cleanup();
+        modalManager.close('saveAsModal');
+    };
+    
+    confirmBtn.addEventListener('click', handleConfirm);
+    cancelBtn.addEventListener('click', handleCancel);
+    closeBtn.addEventListener('click', handleCancel);
+    
+    // Handle Enter key in input
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            handleConfirm();
+        }
+    });
+    
+    modalManager.show('saveAsModal');
+    input.focus();
+    input.select();
+}
+
+/**
+ * Download song with given filename
+ */
+function downloadSong(filename) {
+    const jsonData = pianoRoll.exportToJSON();
+    const blob = new Blob([jsonData], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    
+    URL.revokeObjectURL(url);
+    modalManager.notify('Song saved', 'info');
+}
+
+/**
+ * Open file dialog to load song
+ */
+function handleOpen() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+    
+    input.onchange = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        
+        try {
+            const text = await file.text();
+            pianoRoll.importFromJSON(text);
+            currentFilename = file.name;
+            modalManager.notify('Song loaded successfully', 'info');
+        } catch (error) {
+            modalManager.notify('Failed to load song: ' + error.message, 'error');
+        }
+    };
+    
+    input.click();
+}
+
+/**
  * Load ORG file from path
  */
 async function loadOrgFromPath(path) {
@@ -487,6 +613,7 @@ async function loadOrgFromPath(path) {
         await pianoRoll.loadOrgFile(buffer);
         
         const filename = path.split('/').pop();
+        currentFilename = null;  // Reset filename when loading .org files
         modalManager.notify(`Loaded: ${filename}`, 'info');
     } catch (error) {
         modalManager.notify(`Failed to load file: ${error.message}`, 'error');
@@ -525,8 +652,13 @@ async function showSongDirectory(basePath) {
 
 // Register keyboard shortcuts
 document.addEventListener('keydown', (e) => {
+    // Skip if typing in an input field or textarea
+    if (e.target.matches('input, textarea')) {
+        return;
+    }
+    
     // Playback shortcuts
-    if (e.code === 'Space' && !e.target.matches('input')) {
+    if (e.code === 'Space') {
         e.preventDefault();
         if (pianoRoll.isPlaying && !pianoRoll.isPaused) {
             pianoRoll.pause();
@@ -536,32 +668,17 @@ document.addEventListener('keydown', (e) => {
         updatePlayButton();
     }
     
-    if (e.code === 'Enter' && !e.target.matches('input')) {
+    if (e.code === 'Enter') {
         e.preventDefault();
         pianoRoll.stop();
         updatePlayButton();
     }
     
-    // Edit shortcuts
-    if ((e.ctrlKey || e.metaKey) && !e.target.matches('input')) {
-        switch(e.key.toLowerCase()) {
-            case 'a':
-                e.preventDefault();
-                handleSelectAll();
-                break;
-            case 'c':
-                e.preventDefault();
-                handleCopy();
-                break;
-            case 'x':
-                e.preventDefault();
-                handleCut();
-                break;
-            case 'v':
-                e.preventDefault();
-                handlePaste();
-                break;
-        }
+    // Edit shortcuts are handled by MenuManager's registerShortcut
+    // Only handle Space, Enter, and Delete here since Delete needs special handling
+    if (e.key === 'Delete') {
+        e.preventDefault();
+        handleDelete();
     }
 });
 

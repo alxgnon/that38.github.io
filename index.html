@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>that72.org</title>
-    <link rel="stylesheet" href="css/styles.css?v=20250526222435">
+    <link rel="stylesheet" href="css/styles.css?v=20250526224043">
 </head>
 <body>
     <div id="menubar">
@@ -12,9 +12,9 @@
             <span>File</span>
             <div class="menu-dropdown">
                 <div class="menu-option" id="menu-new">New</div>
-                <div class="menu-option disabled" id="menu-open">Open...</div>
-                <div class="menu-option disabled" id="menu-save">Save</div>
-                <div class="menu-option disabled" id="menu-save-as">Save As...</div>
+                <div class="menu-option" id="menu-open">Open...</div>
+                <div class="menu-option" id="menu-save">Save</div>
+                <div class="menu-option" id="menu-save-as">Save As...</div>
                 <div class="menu-separator"></div>
                 <div class="menu-option" id="menu-import-org">Import Org Maker (.org)...</div>
                 <div class="menu-option disabled" id="menu-import-midi">Import MIDI (.mid)...</div>
@@ -201,7 +201,25 @@
         </div>
     </div>
     
+    <!-- Save As Modal -->
+    <div id="saveAsModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">Save As</h2>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="save-as-dialog">
+                <label for="saveAsFilename">Filename:</label>
+                <input type="text" id="saveAsFilename" placeholder="Enter filename" value="song.json">
+                <div class="save-as-buttons">
+                    <button class="save-as-cancel">Cancel</button>
+                    <button class="save-as-confirm">Save</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
     <!-- Load JavaScript modules -->
-    <script type="module" src="js/main.js?v=20250526222435"></script>
+    <script type="module" src="js/main.js?v=20250526224043"></script>
 </body>
 </html>

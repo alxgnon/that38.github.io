@@ -634,6 +634,11 @@ export class InputHandler {
      * Handle key down
      */
     onKeyDown(e) {
+        // Skip if typing in an input field
+        if (e.target.matches('input, textarea')) {
+            return;
+        }
+        
         // Update modifier keys
         this.shiftKeyHeld = e.shiftKey;
         this.ctrlKeyHeld = e.ctrlKey || e.metaKey;
@@ -654,12 +659,6 @@ export class InputHandler {
         
         // Handle other shortcuts
         switch(e.key) {
-            case 'Delete':
-            case 'Backspace':
-                this.pianoRoll.noteManager.deleteSelectedNotes();
-                this.pianoRoll.dirty = true;
-                e.preventDefault();
-                break;
             case 'Home':
                 this.pianoRoll.scrollX = 0;
                 this.pianoRoll.dirty = true;

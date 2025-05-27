@@ -633,3 +633,52 @@ select:hover {
     background-color: #c9302c;
     border-color: #ac2925;
 }
+
+/* Save As dialog styles */
+.save-as-dialog {
+    padding: 20px 0;
+}
+
+.save-as-dialog label {
+    display: block;
+    margin-bottom: 10px;
+    font-size: 14px;
+    color: #ccc;
+}
+
+.save-as-dialog input[type="text"] {
+    width: 100%;
+    padding: 10px;
+    background: #1a1a1a;
+    border: 1px solid #444;
+    color: #fff;
+    border-radius: 4px;
+    font-size: 14px;
+    margin-bottom: 20px;
+    box-sizing: border-box;
+}
+
+.save-as-dialog input[type="text"]:focus {
+    outline: none;
+    border-color: #4a9eff;
+}
+
+.save-as-buttons {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+}
+
+.save-as-buttons button {
+    min-width: 80px;
+}
+
+.save-as-buttons .save-as-confirm {
+    background-color: #4a9eff;
+    border-color: #357abd;
+}
+
+.save-as-buttons .save-as-confirm:hover {
+    background-color: #357abd;
+    border-color: #28608e;
+}

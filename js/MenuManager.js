@@ -83,7 +83,17 @@ export class MenuManager {
     setupCheckbox(option, item) {
         option.addEventListener('click', (e) => {
             e.stopPropagation();
+            e.preventDefault();
+            
+            // Toggle the checked class
             const isChecked = option.classList.toggle('checked');
+            
+            // Update the visual checkmark
+            const checkmark = option.querySelector('.menu-check');
+            if (checkmark) {
+                checkmark.textContent = isChecked ? '✓' : '';
+            }
+            
             if (item.handler) {
                 item.handler(isChecked);
             }
@@ -92,6 +102,10 @@ export class MenuManager {
         // Set initial state
         if (item.checked) {
             option.classList.add('checked');
+            const checkmark = option.querySelector('.menu-check');
+            if (checkmark) {
+                checkmark.textContent = '✓';
+            }
         }
     }
 

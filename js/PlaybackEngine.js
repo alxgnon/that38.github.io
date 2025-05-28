@@ -49,6 +49,9 @@ export class PlaybackEngine {
         
         // Track visibility (all visible by default)
         this.trackVisibility = new Map();
+        
+        // Song length calculation
+        this.calculatedSongLength = 256; // Default to full length until calculated
     }
     
     /**
@@ -105,6 +108,9 @@ export class PlaybackEngine {
         
         // Reset track visibility
         this.trackVisibility.clear();
+        
+        // Calculate song length
+        this.calculateSongLength();
     }
     
     /**
@@ -116,6 +122,31 @@ export class PlaybackEngine {
         this.notes = notes;
         this.orgMsPerTick = orgMsPerTick;
         // Don't clear track visibility when loading notes directly
+        
+        // Calculate the actual song length
+        this.calculateSongLength();
+    }
+    
+    /**
+     * Calculate the actual length of the song based on notes
+     */
+    calculateSongLength() {
+        if (!this.notes || this.notes.length === 0) {
+            this.calculatedSongLength = 10; // Play at least 10 measures even if empty
+            return;
+        }
+        
+        let maxEndX = 0;
+        for (const note of this.notes) {
+            const noteEndX = note.x + note.width;
+            if (noteEndX > maxEndX) {
+                maxEndX = noteEndX;
+            }
+        }
+        
+        // Convert X position to measure number
+        const measureWidth = GRID_WIDTH * BEATS_PER_MEASURE;
+        this.calculatedSongLength = Math.max(10, Math.ceil((maxEndX - PIANO_KEY_WIDTH) / measureWidth) + 1);
     }
     
     /**
@@ -123,7 +154,17 @@ export class PlaybackEngine {
      * @param {number} fromMeasure - Optional starting measure
      */
     play(fromMeasure = null) {
-        if (!this.notes || this.notes.length === 0 || this.isPlaying) return;
+        if (this.isPlaying) return;
+        
+        // Allow playback even with no notes
+        if (!this.notes) {
+            this.notes = [];
+        }
+        
+        // Ensure we have a valid song length
+        if (this.calculatedSongLength === 0) {
+            this.calculateSongLength();
+        }
         
         this.isPlaying = true;
         this.currentMeasure = fromMeasure !== null ? fromMeasure : this.currentMeasure;
@@ -146,9 +187,14 @@ export class PlaybackEngine {
         this.isPlaying = false;
         this.currentMeasure = 0;
         
-        // Stop all scheduled notes
+        // Stop any currently playing notes immediately
+        const currentTime = this.audioEngine.audioContext.currentTime;
         this.scheduledNotes.forEach(scheduled => {
-            this.audioEngine.stopScheduledNote(scheduled.id);
+            // Only try to stop notes that haven't ended yet
+            if (scheduled.stopTime > currentTime && scheduled.note) {
+                // Try to stop via the key number
+                this.audioEngine.stopNote(scheduled.note.key);
+            }
         });
         this.scheduledNotes = [];
         
@@ -236,6 +282,7 @@ export class PlaybackEngine {
         const lookAheadTime = 0.1; // 100ms lookahead
         const scheduleUntilTime = currentTime + lookAheadTime;
         
+        
         // Initialize scheduling if needed
         if (this.lastScheduledEndTime === 0) {
             this.playbackStartTime = currentTime;
@@ -250,6 +297,7 @@ export class PlaybackEngine {
         const measureDuration = (60 / this.currentBPM) * BEATS_PER_MEASURE;
         
         // Schedule notes until we've covered the lookahead time
+        let hasScheduledAnything = false;
         while (scheduleTime < scheduleUntilTime) {
             // Handle looping
             let displayMeasure = scheduleMeasure;
@@ -257,6 +305,9 @@ export class PlaybackEngine {
                 const loopLength = this.loopEnd - this.loopStart;
                 displayMeasure = this.loopStart + ((displayMeasure - this.loopStart) % loopLength);
             }
+            
+            // Don't stop during scheduling - let the song play out
+            // The stop condition is now handled by checking if we have scheduled far enough ahead
             
             // Get notes for this measure
             const measureStartX = PIANO_KEY_WIDTH + displayMeasure * GRID_WIDTH * BEATS_PER_MEASURE;
@@ -285,6 +336,7 @@ export class PlaybackEngine {
             // Move to next measure
             scheduleTime += measureDuration;
             scheduleMeasure++;
+            hasScheduledAnything = true;
         }
         
         // Remember where we ended
@@ -388,6 +440,12 @@ export class PlaybackEngine {
             this.currentMeasure = newMeasure;
             if (this.onMeasureChange) {
                 this.onMeasureChange(this.currentMeasure);
+            }
+            
+            // Stop if we've reached the end of the song (unless looping)
+            if (!this.loopEnabled && this.currentMeasure >= this.calculatedSongLength) {
+                this.stop();
+                return;
             }
         }
         

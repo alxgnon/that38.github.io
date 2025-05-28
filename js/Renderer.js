@@ -108,6 +108,11 @@ export class Renderer {
         this.drawPlayhead();
         this.ctx.restore();
         
+        // Draw counterpoint assistant overlay if enabled
+        if (this.pianoRoll.counterpointAssistant) {
+            this.pianoRoll.counterpointAssistant.draw(this.ctx);
+        }
+        
         // Draw FPS if enabled
         if (this.pianoRoll.showFPS) {
             this.drawFPS();

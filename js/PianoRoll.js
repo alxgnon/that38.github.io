@@ -19,6 +19,7 @@ import { Renderer } from './Renderer.js';
 import { OrgParser } from './OrgParser.js';
 import { MidiParser } from './MidiParser.js';
 import PlaybackEngine from './PlaybackEngine.js';
+import { CounterpointAssistant } from './CounterpointAssistant.js';
 
 /**
  * Main PianoRoll class - coordinates all components
@@ -44,6 +45,7 @@ export class PianoRoll {
         
         this.inputHandler = new InputHandler(this);
         this.renderer = new Renderer(canvas, this);
+        this.counterpointAssistant = new CounterpointAssistant(this);
         
         // Dimensions
         this.pianoKeyWidth = PIANO_KEY_WIDTH;

@@ -259,6 +259,17 @@ function setupMenus() {
                 }
             },
             {
+                id: 'menu-counterpoint-assistant',
+                type: 'checkbox',
+                checked: false,
+                handler: (checked) => {
+                    if (pianoRoll && pianoRoll.counterpointAssistant) {
+                        pianoRoll.counterpointAssistant.enabled = checked;
+                        pianoRoll.dirty = true;
+                    }
+                }
+            },
+            {
                 id: 'menu-track-info',
                 handler: () => {
                     const trackData = pianoRoll.buildTrackData();

@@ -350,11 +350,7 @@ select:hover {
 .menu-check {
     position: absolute;
     left: 8px;
-    opacity: 0;
-}
-
-.menu-checkbox.checked .menu-check {
-    opacity: 1;
+    /* Remove opacity-based hiding since we're using text content */
 }
 
 .menu-submenu {

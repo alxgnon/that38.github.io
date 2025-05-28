@@ -19,7 +19,6 @@ import { Renderer } from './Renderer.js';
 import { OrgParser } from './OrgParser.js';
 import { MidiParser } from './MidiParser.js';
 import PlaybackEngine from './PlaybackEngine.js';
-import { CounterpointAssistant } from './CounterpointAssistant.js';
 
 /**
  * Main PianoRoll class - coordinates all components
@@ -45,7 +44,6 @@ export class PianoRoll {
         
         this.inputHandler = new InputHandler(this);
         this.renderer = new Renderer(canvas, this);
-        this.counterpointAssistant = new CounterpointAssistant(this);
         
         // Dimensions
         this.pianoKeyWidth = PIANO_KEY_WIDTH;
@@ -447,7 +445,7 @@ export class PianoRoll {
     async loadMidiFile(arrayBuffer) {
         try {
             const midiData = MidiParser.parse(arrayBuffer);
-            const converted = MidiParser.convertToNotes(midiData, arrayBuffer);
+            const converted = MidiParser.convertToNotes(midiData, arrayBuffer, -1, this.currentSample);
             
             // Clear existing notes
             this.noteManager.clearAll();
@@ -559,7 +557,10 @@ export class PianoRoll {
                     </div>
                     <div class="track-controls">
                         <button class="track-btn track-visibility ${track.visible ? 'active' : ''}" data-track="${track.name}" title="Toggle visibility">
-                            ${track.visible ? '👁' : '🚫'}
+                            ${track.visible ? 
+                                '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 3C3 3 0 8 0 8s3 5 8 5 8-5 8-5-3-5-8-5zm0 8c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm0-5c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg>' : 
+                                '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M13.3 2.7l-10.6 10.6c-.4.4-.4 1 0 1.4.4.4 1 .4 1.4 0l10.6-10.6c.4-.4.4-1 0-1.4-.4-.4-1-.4-1.4 0zM8 3C3 3 0 8 0 8s3 5 8 5c.9 0 1.7-.2 2.5-.5l-1.5-1.5c-.3.1-.6.2-1 .2-1.66 0-3-1.34-3-3 0-.4.1-.7.2-1L3.5 5.5C3.2 6.3 3 7.1 3 8c0 0-3-5 5-5 .9 0 1.7.2 2.5.5l1.5-1.5C10.7 3.2 9.4 3 8 3z"/></svg>'
+                            }
                         </button>
                     </div>
                 `;
@@ -569,10 +570,14 @@ export class PianoRoll {
             // Add event listeners
             content.querySelectorAll('.track-visibility').forEach(btn => {
                 btn.addEventListener('click', (e) => {
-                    const trackName = e.target.getAttribute('data-track');
+                    const button = e.target.closest('.track-visibility');
+                    const trackName = button.getAttribute('data-track');
                     this.toggleTrackVisibility(trackName);
-                    e.target.classList.toggle('active');
-                    e.target.textContent = e.target.classList.contains('active') ? '👁' : '🚫';
+                    button.classList.toggle('active');
+                    const isActive = button.classList.contains('active');
+                    button.innerHTML = isActive ? 
+                        '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 3C3 3 0 8 0 8s3 5 8 5 8-5 8-5-3-5-8-5zm0 8c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm0-5c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg>' : 
+                        '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M13.3 2.7l-10.6 10.6c-.4.4-.4 1 0 1.4.4.4 1 .4 1.4 0l10.6-10.6c.4-.4.4-1 0-1.4-.4-.4-1-.4-1.4 0zM8 3C3 3 0 8 0 8s3 5 8 5c.9 0 1.7-.2 2.5-.5l-1.5-1.5c-.3.1-.6.2-1 .2-1.66 0-3-1.34-3-3 0-.4.1-.7.2-1L3.5 5.5C3.2 6.3 3 7.1 3 8c0 0-3-5 5-5 .9 0 1.7.2 2.5.5l1.5-1.5C10.7 3.2 9.4 3 8 3z"/></svg>';
                 });
             });
         }

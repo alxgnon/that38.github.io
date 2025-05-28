@@ -108,11 +108,6 @@ export class Renderer {
         this.drawPlayhead();
         this.ctx.restore();
         
-        // Draw counterpoint assistant overlay if enabled
-        if (this.pianoRoll.counterpointAssistant) {
-            this.pianoRoll.counterpointAssistant.draw(this.ctx);
-        }
-        
         // Draw FPS if enabled
         if (this.pianoRoll.showFPS) {
             this.drawFPS();
@@ -299,6 +294,13 @@ export class Renderer {
             if (this.pianoRoll.trackVisibility.get(instrument) === false) {
                 continue;
             }
+            
+            // Sort notes by position to ensure consistent z-order
+            // Notes further to the right and lower down appear on top
+            notes.sort((a, b) => {
+                if (a.x !== b.x) return a.x - b.x;
+                return a.y - b.y;
+            });
             
             const instrumentColor = this.pianoRoll.getInstrumentColor(instrument);
             

@@ -8,7 +8,7 @@ import { DEFAULT_VOLUME } from './constants.js';
 // Initialize managers
 const modalManager = new ModalManager();
 window.modalManager = modalManager; // Make it globally accessible
-const menuManager = new MenuManager();
+const menuManager = new MenuManager(modalManager);
 let pianoRoll = null;
 let panBar = null;
 let velocityBar = null;
@@ -256,17 +256,6 @@ function setupMenus() {
                 checked: true,
                 handler: (checked) => {
                     pianoRoll.followMode = checked;
-                }
-            },
-            {
-                id: 'menu-counterpoint-assistant',
-                type: 'checkbox',
-                checked: false,
-                handler: (checked) => {
-                    if (pianoRoll && pianoRoll.counterpointAssistant) {
-                        pianoRoll.counterpointAssistant.enabled = checked;
-                        pianoRoll.dirty = true;
-                    }
                 }
             },
             {
@@ -562,10 +551,6 @@ function showShortcuts() {
             <span class="shortcut-key">Enter</span>
             <span class="shortcut-desc">Stop and return to start</span>
         </div>
-        <div class="shortcut-item">
-            <span class="shortcut-key">L</span>
-            <span class="shortcut-desc">Toggle loop mode</span>
-        </div>
     </div>
 
     <div class="shortcut-section">
@@ -605,10 +590,6 @@ function showShortcuts() {
         <div class="shortcut-item">
             <span class="shortcut-key">Delete</span>
             <span class="shortcut-desc">Delete selected notes</span>
-        </div>
-        <div class="shortcut-item">
-            <span class="shortcut-key">Escape</span>
-            <span class="shortcut-desc">Deselect all</span>
         </div>
     </div>
 
@@ -651,16 +632,12 @@ function showShortcuts() {
             <span class="shortcut-desc">Scroll horizontally</span>
         </div>
         <div class="shortcut-item">
-            <span class="shortcut-key">Ctrl+Wheel</span>
-            <span class="shortcut-desc">Zoom in/out</span>
-        </div>
-        <div class="shortcut-item">
             <span class="shortcut-key">Home</span>
             <span class="shortcut-desc">Go to beginning</span>
         </div>
         <div class="shortcut-item">
             <span class="shortcut-key">End</span>
-            <span class="shortcut-desc">Go to last note</span>
+            <span class="shortcut-desc">Go to end</span>
         </div>
     </div>
 
@@ -673,10 +650,6 @@ function showShortcuts() {
         <div class="shortcut-item">
             <span class="shortcut-key">Two Finger Drag</span>
             <span class="shortcut-desc">Scroll view</span>
-        </div>
-        <div class="shortcut-item">
-            <span class="shortcut-key">Pinch</span>
-            <span class="shortcut-desc">Zoom in/out</span>
         </div>
     </div>
 </div>`;
@@ -945,6 +918,11 @@ async function showSongDirectory(basePath, isMidi = false) {
 document.addEventListener('keydown', (e) => {
     // Skip if typing in an input field or textarea
     if (e.target.matches('input, textarea')) {
+        return;
+    }
+    
+    // Skip if a modal is open
+    if (modalManager.activeModal) {
         return;
     }
     

@@ -378,9 +378,10 @@ export class MidiParser {
      * @param {Object} midiData - Parsed MIDI data
      * @param {ArrayBuffer} originalBuffer - Original MIDI file buffer for checksum
      * @param {number} octaveShift - Number of octaves to transpose (negative = down, positive = up)
+     * @param {string} defaultInstrument - Default instrument to use when no program change is specified
      * @returns {Object} Piano roll data
      */
-    static convertToNotes(midiData, originalBuffer, octaveShift = -1) {
+    static convertToNotes(midiData, originalBuffer, octaveShift = -1, defaultInstrument = null) {
         const notes = [];
         const activeNotes = new Map(); // Track active notes by key
         
@@ -390,7 +391,7 @@ export class MidiParser {
         
         // Track which instruments are assigned to which track+channel combinations
         const trackChannelInstruments = new Map();
-        // Track MIDI program changes per channel
+        // Track MIDI program changes per channel - fresh map for each conversion
         const channelPrograms = new Map();
         let tempo = 120; // Default tempo
         let timeSignature = { numerator: 4, denominator: 4 };
@@ -498,7 +499,6 @@ export class MidiParser {
             if (event.type === 'programChange') {
                 // Track program changes per channel
                 channelPrograms.set(event.channel, event.program);
-                const pan = this.getOrchestralPan(event.program);
             } else if (event.type === 'noteOn') {
                 // Store note start with track info
                 const key = `${event.trackIndex}-${event.channel}-${event.note}`;
@@ -568,21 +568,34 @@ export class MidiParser {
                                     // Map MIDI program (0-127) to ORG instrument (0-99)
                                     // Using modulo to fit into ORG's instrument range
                                     instrumentNum = midiProgram % 100;
+                                    const instrumentName = `ORG_M${instrumentNum.toString().padStart(2, '0')}`;
+                                    trackChannelInstruments.set(trackChannelKey, instrumentName);
                                     // Get orchestral pan position
                                     pan = this.getOrchestralPan(midiProgram);
                                     // Apply velocity scaling for better balance
                                     const velocityScale = this.getVelocityScale(midiProgram);
                                     velocity = Math.min(127, Math.round(velocity * velocityScale));
                                 } else {
-                                    // No program change, use random instrument
-                                    instrumentNum = Math.floor(random() * 100);
+                                    // No program change, use default instrument if provided
+                                    if (defaultInstrument) {
+                                        trackChannelInstruments.set(trackChannelKey, defaultInstrument);
+                                    } else {
+                                        // Fall back to random instrument if no default provided
+                                        instrumentNum = Math.floor(random() * 100);
+                                        const instrumentName = `ORG_M${instrumentNum.toString().padStart(2, '0')}`;
+                                        trackChannelInstruments.set(trackChannelKey, instrumentName);
+                                    }
                                     pan = 0; // Center for unknown instruments
                                 }
-                                
-                                const instrumentName = `ORG_M${instrumentNum.toString().padStart(2, '0')}`;
-                                trackChannelInstruments.set(trackChannelKey, instrumentName);
                             }
                             instrument = trackChannelInstruments.get(trackChannelKey);
+                            
+                            // Safety check - ensure instrument is never undefined
+                            if (!instrument) {
+                                console.warn(`No instrument found for ${trackChannelKey}, using default`);
+                                instrument = defaultInstrument || 'ORG_M00';
+                            }
+                            
                             // Still need to get pan and velocity scaling for this instrument
                             const midiProgram = channelPrograms.get(noteStart.channel);
                             if (midiProgram !== undefined) {
@@ -661,7 +674,7 @@ export class MidiParser {
                     velocity: noteStart.velocity,
                     pan: 0,
                     instrument: noteStart.channel === 9 ? 'ORG_D00' : 
-                               (channelInstruments.get(noteStart.channel) || 'ORG_M00'),
+                               (defaultInstrument || 'ORG_M00'),
                     pipi: 0
                 });
             });

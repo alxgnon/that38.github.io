@@ -2,9 +2,10 @@
  * Unified menu management system
  */
 export class MenuManager {
-    constructor() {
+    constructor(modalManager = null) {
         this.menus = new Map();
         this.activeMenu = null;
+        this.modalManager = modalManager;
         this.setupEventListeners();
         this.initializeAllMenus();
     }
@@ -222,6 +223,11 @@ export class MenuManager {
         document.addEventListener('keydown', (e) => {
             // Skip if typing in an input field or textarea
             if (e.target.matches('input, textarea')) {
+                return;
+            }
+            
+            // Skip if a modal is open
+            if (this.modalManager && this.modalManager.activeModal) {
                 return;
             }
             

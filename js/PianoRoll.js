@@ -367,7 +367,7 @@ export class PianoRoll {
             }
             
             const midiData = MidiParser.parse(arrayBuffer);
-            const converted = MidiParser.convertToNotes(midiData, arrayBuffer, -1, this.currentSample);
+            const converted = MidiParser.convertToNotes(midiData, arrayBuffer, -1, null);
             
             // Clear existing notes
             this.noteManager.clearAll();

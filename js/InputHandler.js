@@ -954,11 +954,9 @@ export class InputHandler {
             
             // Listen for new devices
             midiAccess.onstatechange = (e) => {
-                console.log('MIDI device', e.port.name, 'state:', e.port.state);
                 this.connectMIDIInputs();
             };
         } catch (error) {
-            console.log('MIDI access not available:', error);
         }
     }
     
@@ -976,7 +974,6 @@ export class InputHandler {
         
         // Connect to all inputs
         for (const input of this.midiAccess.inputs.values()) {
-            console.log('Connecting to MIDI input:', input.name);
             input.onmidimessage = (e) => this.handleMIDIMessage(e);
             this.midiInputs.push(input);
         }

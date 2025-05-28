@@ -91,7 +91,6 @@ export class PianoRoll {
         
         // Instrument colors
         this.instrumentColors = new Map();
-        this.instrumentColorIndex = 0;
         
         // Track visibility - delegate to playback engine
         Object.defineProperty(this, 'trackVisibility', {
@@ -174,116 +173,6 @@ export class PianoRoll {
         // This method is kept for compatibility but does nothing
     }
 
-    // Note scheduling is now handled by PlaybackEngine
-    /*
-    scheduleNotes() {
-        const currentTime = this.audioEngine.audioContext.currentTime;
-        const lookAheadTime = 0.1; // 100ms lookahead
-        const scheduleUntilTime = currentTime + lookAheadTime;
-        
-        // Initialize scheduling if needed
-        if (this.lastScheduledEndTime === 0) {
-            this.playbackStartTime = currentTime;
-            this.playbackStartMeasure = this.currentMeasure;
-            this.lastScheduledEndTime = currentTime;
-            this.lastScheduledMeasure = this.currentMeasure;
-        }
-        
-        let scheduleTime = this.lastScheduledEndTime;
-        let scheduleMeasure = this.lastScheduledMeasure;
-        
-        // Schedule notes until we've covered the lookahead time
-        while (scheduleTime < scheduleUntilTime) {
-            // Handle looping
-            let displayMeasure = scheduleMeasure;
-            if (this.loopEnabled && displayMeasure >= this.loopEnd) {
-                const loopLength = this.loopEnd - this.loopStart;
-                displayMeasure = this.loopStart + ((displayMeasure - this.loopStart) % loopLength);
-            }
-            
-            // Get notes for this measure
-            const measureStartX = this.pianoKeyWidth + displayMeasure * this.gridWidth * this.beatsPerMeasure;
-            const measureWidth = this.gridWidth * this.beatsPerMeasure;
-            const notesInMeasure = this.noteManager.getNotesInMeasures(displayMeasure, displayMeasure + 1);
-            
-            for (const note of notesInMeasure) {
-                // Skip if track is hidden
-                if (this.trackVisibility.get(note.instrument) === false) {
-                    continue;
-                }
-                
-                // Check if note actually starts within this measure's boundaries
-                if (note.x >= measureStartX && note.x < measureStartX + measureWidth) {
-                    const noteOffsetX = note.x - measureStartX;
-                    const noteOffsetTime = (noteOffsetX / measureWidth) * (this.measureDuration / 1000);
-                    const noteStartTime = scheduleTime + noteOffsetTime;
-                    const noteDuration = (note.width / measureWidth) * (this.measureDuration / 1000);
-                    
-                    
-                    if (noteStartTime >= currentTime) {
-                        // Don't await - schedule all notes immediately
-                        this.scheduleNoteAtTime(note, noteStartTime, noteDuration);
-                    }
-                }
-            }
-            
-            // Move to next measure
-            scheduleTime += this.measureDuration / 1000;
-            scheduleMeasure++;
-        }
-        
-        // Remember where we ended
-        this.lastScheduledEndTime = scheduleTime;
-        this.lastScheduledMeasure = scheduleMeasure;
-        
-        // Clean up old scheduled notes
-        const cleanupTime = this.audioEngine.audioContext.currentTime;
-        this.scheduledNotes = this.scheduledNotes.filter(s => s.stopTime > cleanupTime);
-        
-        // Schedule next update
-        if (this.scheduleTimeout) {
-            clearTimeout(this.scheduleTimeout);
-        }
-        this.scheduleTimeout = setTimeout(() => {
-            if (this.isPlaying) {
-                this.scheduleNotes();
-            }
-        }, 50); // Check every 50ms
-    }
-    */
-
-    /*
-    scheduleNoteAtTime(note, startTime, duration) {
-        // Calculate tick duration for automation timing
-        // Use the actual ms per tick from the org file if available
-        const tickDuration = this.orgMsPerTick ? this.orgMsPerTick / 1000 : this.beatDuration / 48000; // Convert to seconds
-        
-        // Use Web Audio API scheduling for accurate timing
-        this.audioEngine.playNote(
-            note.key,
-            note.velocity,
-            note.instrument,
-            false,
-            note.pan,
-            startTime,
-            duration,
-            note.pipi || false,
-            note.volumeAutomation || null,
-            note.panAutomation || null,
-            note.freqAdjust || 0,
-            tickDuration
-        ).then(noteData => {
-            if (noteData) {
-                const noteId = `${note.key}-${startTime}`;
-                this.scheduledNotes.push({
-                    id: noteId,
-                    noteData: noteData,
-                    stopTime: startTime + duration
-                });
-            }
-        });
-    }
-    */
 
     play() {
         if (!this.isPlaying) {
@@ -361,11 +250,30 @@ export class PianoRoll {
 
     getInstrumentColor(instrumentName) {
         if (!this.instrumentColors.has(instrumentName)) {
-            const color = INSTRUMENT_COLOR_PALETTE[
-                this.instrumentColorIndex % INSTRUMENT_COLOR_PALETTE.length
-            ];
+            // Use a deterministic color based on instrument name
+            // This ensures consistent colors regardless of load order
+            let colorIndex;
+            
+            if (instrumentName.startsWith('ORG_M')) {
+                // For melodic instruments, use the instrument number
+                const num = parseInt(instrumentName.substring(5));
+                colorIndex = num % INSTRUMENT_COLOR_PALETTE.length;
+            } else if (instrumentName.startsWith('ORG_D')) {
+                // For drums, offset by 100 to avoid conflicts with melodic
+                const num = parseInt(instrumentName.substring(5));
+                colorIndex = (100 + num) % INSTRUMENT_COLOR_PALETTE.length;
+            } else {
+                // For other instruments (MIDI etc), use string hash
+                let hash = 0;
+                for (let i = 0; i < instrumentName.length; i++) {
+                    hash = ((hash << 5) - hash) + instrumentName.charCodeAt(i);
+                    hash = hash & hash; // Convert to 32bit integer
+                }
+                colorIndex = Math.abs(hash) % INSTRUMENT_COLOR_PALETTE.length;
+            }
+            
+            const color = INSTRUMENT_COLOR_PALETTE[colorIndex];
             this.instrumentColors.set(instrumentName, color);
-            this.instrumentColorIndex++;
         }
         return this.instrumentColors.get(instrumentName);
     }
@@ -398,6 +306,11 @@ export class PianoRoll {
 
     async loadOrgFile(arrayBuffer) {
         try {
+            // Stop playback if playing
+            if (this.isPlaying) {
+                this.stop();
+            }
+            
             const orgData = OrgParser.parse(arrayBuffer);
             const converted = OrgParser.convertToNotes(orgData, this.currentBPM);
             
@@ -406,7 +319,6 @@ export class PianoRoll {
             
             // Clear instrument colors to ensure consistent assignment
             this.instrumentColors.clear();
-            this.instrumentColorIndex = 0;
             
             // Store org-specific timing info
             this.orgMsPerTick = converted.msPerTick;
@@ -436,6 +348,11 @@ export class PianoRoll {
             // Notify that notes have changed so pan/velocity bars update
             this.emit('notesChanged');
             
+            // Update play button state
+            if (typeof updatePlayButton === 'function') {
+                updatePlayButton();
+            }
+            
             return true;
         } catch (error) {
             throw error;
@@ -444,6 +361,11 @@ export class PianoRoll {
     
     async loadMidiFile(arrayBuffer) {
         try {
+            // Stop playback if playing
+            if (this.isPlaying) {
+                this.stop();
+            }
+            
             const midiData = MidiParser.parse(arrayBuffer);
             const converted = MidiParser.convertToNotes(midiData, arrayBuffer, -1, this.currentSample);
             
@@ -452,7 +374,6 @@ export class PianoRoll {
             
             // Clear instrument colors to ensure consistent assignment
             this.instrumentColors.clear();
-            this.instrumentColorIndex = 0;
             
             // Add converted notes
             converted.notes.forEach(noteData => {
@@ -476,6 +397,11 @@ export class PianoRoll {
             
             // Show track info
             this.showMidiTrackInfo();
+            
+            // Update play button state
+            if (typeof updatePlayButton === 'function') {
+                updatePlayButton();
+            }
             
             return true;
         } catch (error) {
@@ -645,6 +571,11 @@ export class PianoRoll {
     
     importFromJSON(jsonString) {
         try {
+            // Stop playback if playing
+            if (this.isPlaying) {
+                this.stop();
+            }
+            
             const songData = JSON.parse(jsonString);
             
             // Clear existing notes and org info
@@ -711,6 +642,11 @@ export class PianoRoll {
             this.dirty = true;
             this.renderer.markFullRedraw();
             this.emit('notesChanged');
+            
+            // Update play button state
+            if (typeof updatePlayButton === 'function') {
+                updatePlayButton();
+            }
             
             return true;
         } catch (error) {

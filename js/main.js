@@ -174,8 +174,7 @@ function setupMenus() {
         file: [
             {
                 id: 'menu-new',
-                handler: () => handleNew(),
-                shortcut: 'Ctrl+N'
+                handler: () => handleNew()
             },
             {
                 id: 'menu-open',
@@ -372,6 +371,9 @@ async function handleImportOrg() {
             try {
                 const buffer = await file.arrayBuffer();
                 await pianoRoll.loadOrgFile(buffer);
+                // Convert to .json extension for saving
+                currentFilename = file.name.replace(/\.org$/i, '.json');
+                updatePageTitle();
                 modalManager.notify(`Loaded: ${file.name}`, 'info');
             } catch (error) {
                 modalManager.notify(`Failed to load file: ${error.message}`, 'error');
@@ -393,6 +395,9 @@ async function handleImportMidi() {
             try {
                 const buffer = await file.arrayBuffer();
                 await pianoRoll.loadMidiFile(buffer);
+                // Convert to .json extension for saving
+                currentFilename = file.name.replace(/\.(mid|midi)$/i, '.json');
+                updatePageTitle();
                 modalManager.notify(`Loaded: ${file.name}`, 'info');
             } catch (error) {
                 modalManager.notify(`Failed to load MIDI file: ${error.message}`, 'error');
@@ -465,75 +470,6 @@ function handleSelectAll() {
     pianoRoll.dirty = true;
 }
 
-/**
- * Show mobile songs menu
- */
-function showMobileSongsMenu() {
-    // Get current instrument from the selector
-    const currentInstrument = document.getElementById('instrumentSelector').value;
-    
-    const songCategories = `
-<div class="mobile-songs-menu">
-    <button class="song-category-btn" data-org="songs/Pixel/all/">Cave Story (All Songs)</button>
-    <button class="song-category-btn" data-midi-dir="songs/classical/">Classical Music</button>
-    <div class="separator"></div>
-    <h3>Quick Access</h3>
-    <button class="song-quick-btn" data-org="songs/Pixel/all/Cave Story.org">Cave Story</button>
-    <button class="song-quick-btn" data-org="songs/Pixel/all/Labyrinth Fight.org">Labyrinth Fight</button>
-    <button class="song-quick-btn" data-org="songs/Pixel/all/Mischievous Robot.org">Mischievous Robot</button>
-    <button class="song-quick-btn" data-org="songs/Pixel/all/Moonsong.org">Moonsong</button>
-    <button class="song-quick-btn" data-org="songs/Pixel/all/Running Hell.org">Running Hell</button>
-    <button class="song-quick-btn" data-org="songs/Pixel/all/Torokos Theme.org">Torokos Theme</button>
-    <button class="song-quick-btn" data-org="songs/Pixel/all/White.org">White</button>
-    <button class="song-quick-btn" data-org="songs/Pixel/all/Wind Fortress.org">Wind Fortress</button>
-    <div class="separator"></div>
-    <h3>Voice</h3>
-    <select id="mobileInstrumentSelector" class="mobile-instrument-select">
-        ${Array.from(document.getElementById('instrumentSelector').options).map(option => 
-            `<option value="${option.value}" ${option.value === currentInstrument ? 'selected' : ''}>${option.text}</option>`
-        ).join('')}
-    </select>
-</div>`;
-    
-    modalManager.show('infoModal', {
-        title: 'Songs & Voice',
-        content: songCategories
-    });
-    
-    // Add event listeners to buttons
-    setTimeout(() => {
-        document.querySelectorAll('.song-category-btn').forEach(btn => {
-            btn.addEventListener('click', async (e) => {
-                const orgPath = e.target.getAttribute('data-org');
-                const midiPath = e.target.getAttribute('data-midi-dir');
-                modalManager.close('infoModal');
-                if (orgPath) {
-                    await showSongDirectory(orgPath, false);
-                } else if (midiPath) {
-                    await showSongDirectory(midiPath, true);
-                }
-            });
-        });
-        
-        document.querySelectorAll('.song-quick-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                const orgPath = e.target.getAttribute('data-org');
-                modalManager.close('infoModal');
-                loadOrgFromPath(orgPath);
-            });
-        });
-        
-        // Add event listener for mobile instrument selector
-        const mobileInstrumentSelector = document.getElementById('mobileInstrumentSelector');
-        if (mobileInstrumentSelector) {
-            mobileInstrumentSelector.addEventListener('change', (e) => {
-                const mainSelector = document.getElementById('instrumentSelector');
-                mainSelector.value = e.target.value;
-                mainSelector.dispatchEvent(new Event('change'));
-            });
-        }
-    }, 100);
-}
 
 /**
  * Show keyboard shortcuts
@@ -562,10 +498,6 @@ function showShortcuts() {
         <div class="shortcut-item">
             <span class="shortcut-key">Ctrl+O</span>
             <span class="shortcut-desc">Open file</span>
-        </div>
-        <div class="shortcut-item">
-            <span class="shortcut-key">Ctrl+N</span>
-            <span class="shortcut-desc">New project</span>
         </div>
     </div>
 
@@ -604,20 +536,12 @@ function showShortcuts() {
             <span class="shortcut-desc">Delete note</span>
         </div>
         <div class="shortcut-item">
-            <span class="shortcut-key">Middle Click</span>
-            <span class="shortcut-desc">Pan view</span>
-        </div>
-        <div class="shortcut-item">
             <span class="shortcut-key">Ctrl+Click</span>
             <span class="shortcut-desc">Start box selection</span>
         </div>
         <div class="shortcut-item">
             <span class="shortcut-key">Shift+Click</span>
             <span class="shortcut-desc">Add to selection</span>
-        </div>
-        <div class="shortcut-item">
-            <span class="shortcut-key">Alt+Drag</span>
-            <span class="shortcut-desc">Duplicate notes</span>
         </div>
     </div>
 
@@ -667,30 +591,22 @@ function showAbout() {
     const about = `
 <div class="about-container">
     <h2 style="margin-top: 0; color: #4a9eff;">that72.org</h2>
-    <p style="color: #ccc; margin-bottom: 20px;">Version 2.0</p>
+    <p style="color: #ccc; margin-bottom: 20px;">72-EDO Microtonal Sequencer</p>
     
-    <p>A microtonal piano roll sequencer featuring 72 equal divisions of the octave (72-EDO), 
-    providing precise control with 16.67 cents per step for exploring xenharmonic music.</p>
+    <p>A piano roll sequencer with 72 equal divisions per octave (16.67 cents per step) for xenharmonic music.</p>
     
-    <h3>Key Features</h3>
+    <h3>Features</h3>
     <ul style="list-style: none; padding: 0;">
-        <li>• 72-EDO tuning system across 8 octaves</li>
-        <li>• Import Organya (.org) and MIDI (.mid) files</li>
-        <li>• 100 unique wavetable instruments + 6 drum samples</li>
-        <li>• Per-note velocity and pan control</li>
-        <li>• Multi-touch support for mobile devices</li>
-        <li>• 256 measures with adjustable loop points</li>
-        <li>• Real-time visual feedback with follow mode</li>
+        <li>• 8 octaves of 72-EDO tuning</li>
+        <li>• Import .org and .mid files</li>
+        <li>• 100 wavetable instruments + 6 drums</li>
+        <li>• Per-note velocity and pan</li>
+        <li>• 256 measures with loop points</li>
     </ul>
     
-    <h3>Credits</h3>
-    <p>Wavetable synthesis engine and instruments from Org Maker<br>
-    Cave Story music by Daisuke "Pixel" Amaya<br>
-    Classical MIDI arrangements from various sources</p>
-    
     <p style="margin-top: 20px; color: #888; font-size: 12px;">
-    Built with Web Audio API • Open source on GitHub<br>
-    Created for microtonal music exploration and composition
+    Wavetable engine from Org Maker<br>
+    Cave Story music by Pixel
     </p>
 </div>`;
     
@@ -822,7 +738,8 @@ async function loadOrgFromPath(path) {
         await pianoRoll.loadOrgFile(buffer);
         
         const filename = path.split('/').pop();
-        currentFilename = filename;
+        // Convert to .json extension for saving
+        currentFilename = filename.replace(/\.org$/i, '.json');
         updatePageTitle();
         modalManager.notify(`Loaded: ${filename}`, 'info');
     } catch (error) {
@@ -842,7 +759,8 @@ async function loadMidiFromPath(path) {
         await pianoRoll.loadMidiFile(buffer);
         
         const filename = path.split('/').pop();
-        currentFilename = filename;
+        // Convert to .json extension for saving
+        currentFilename = filename.replace(/\.(mid|midi)$/i, '.json');
         updatePageTitle();
         modalManager.notify(`Loaded: ${filename}`, 'info');
     } catch (error) {

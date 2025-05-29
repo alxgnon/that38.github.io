@@ -84,7 +84,7 @@ export class PanBar {
             if (this.initialPanValues && this.pianoRoll.noteManager.selectedNotes.has(this.draggingNote)) {
                 // Update all selected notes relative to the drag
                 const centerY = this.canvas.height / 2;
-                const currentPan = Math.round(((centerY - y) / centerY) * 100);
+                const currentPan = Math.round(((y - centerY) / centerY) * 100);
                 const panDelta = currentPan - this.dragStartPan;
                 
                 for (const [note, initialPan] of this.initialPanValues) {
@@ -136,7 +136,7 @@ export class PanBar {
     updateNotePan(note, y) {
         // Convert y position to pan value (-100 to 100)
         const centerY = this.canvas.height / 2;
-        const pan = Math.max(-100, Math.min(100, ((centerY - y) / centerY) * 100));
+        const pan = Math.max(-100, Math.min(100, ((y - centerY) / centerY) * 100));
         note.pan = Math.round(pan);
         this.pianoRoll.dirty = true;
         this.draw();
@@ -187,7 +187,7 @@ export class PanBar {
             }
             const x = note.x;
             const pan = note.pan || 0;
-            const y = this.canvas.height / 2 - (pan / 100) * (this.canvas.height / 2);
+            const y = this.canvas.height / 2 + (pan / 100) * (this.canvas.height / 2);
             
             // Draw handle
             const isHovered = note === this.hoveredNote;

@@ -731,7 +731,11 @@ function handleOpen() {
  */
 async function loadOrgFromPath(path) {
     try {
-        const response = await fetch(path);
+        // Add cache-busting query parameter
+        const cacheBuster = `?t=${Date.now()}`;
+        const response = await fetch(path + cacheBuster, {
+            cache: 'no-cache'
+        });
         if (!response.ok) throw new Error('File not found');
         
         const buffer = await response.arrayBuffer();
@@ -752,7 +756,11 @@ async function loadOrgFromPath(path) {
  */
 async function loadMidiFromPath(path) {
     try {
-        const response = await fetch(path);
+        // Add cache-busting query parameter
+        const cacheBuster = `?t=${Date.now()}`;
+        const response = await fetch(path + cacheBuster, {
+            cache: 'no-cache'
+        });
         if (!response.ok) throw new Error('File not found');
         
         const buffer = await response.arrayBuffer();
@@ -773,7 +781,11 @@ async function loadMidiFromPath(path) {
  */
 async function showSongDirectory(basePath, isMidi = false) {
     try {
-        const response = await fetch(basePath + 'index.json');
+        // Add cache-busting query parameter
+        const cacheBuster = `?t=${Date.now()}`;
+        const response = await fetch(basePath + 'index.json' + cacheBuster, {
+            cache: 'no-cache'
+        });
         const songs = await response.json();
         
         // Create song list

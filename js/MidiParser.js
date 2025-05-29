@@ -909,79 +909,79 @@ export class MidiParser {
         const panMap = {
             // Pianos - spread across stage
             0: 0,     // Acoustic Grand Piano - center
-            1: 10,    // Bright Acoustic Piano - slightly right
-            2: -10,   // Electric Grand Piano - slightly left
-            3: 15,    // Honky-tonk Piano - right
-            4: -15,   // Electric Piano 1 - left
-            5: 20,    // Electric Piano 2 - right
-            6: -25,   // Harpsichord - left (baroque position)
-            7: 25,    // Clavi - right
+            1: 8,     // Bright Acoustic Piano - slightly right
+            2: -8,    // Electric Grand Piano - slightly left
+            3: 12,    // Honky-tonk Piano - right
+            4: -12,   // Electric Piano 1 - left
+            5: 15,    // Electric Piano 2 - right
+            6: -20,   // Harpsichord - left (baroque position)
+            7: 20,    // Clavi - right
             
             // Chromatic percussion - center to right
-            8: 20,    // Celesta
-            9: 40,    // Glockenspiel
+            8: 15,    // Celesta
+            9: 30,    // Glockenspiel
             10: 0,    // Music Box
-            11: 20,   // Vibraphone
-            12: 40,   // Marimba
-            13: 60,   // Xylophone
-            14: 40,   // Tubular Bells
-            15: 20,   // Dulcimer
+            11: 15,   // Vibraphone
+            12: 30,   // Marimba
+            13: 45,   // Xylophone
+            14: 30,   // Tubular Bells
+            15: 15,   // Dulcimer
             
             // Organs - center
             16: 0, 17: 0, 18: 0, 19: 0, 20: 0, 21: 0, 22: 0, 23: 0,
             
             // Guitars - center-left
-            24: -20, 25: -20, 26: -20, 27: -20, 28: -20, 29: -20, 30: -20, 31: -20,
+            24: -15, 25: -15, 26: -15, 27: -15, 28: -15, 29: -15, 30: -15, 31: -15,
             
             // Basses - right
-            32: 60, 33: 60, 34: 60, 35: 60, 36: 60, 37: 60, 38: 60, 39: 60,
+            32: 45, 33: 45, 34: 45, 35: 45, 36: 45, 37: 45, 38: 45, 39: 45,
             
             // Strings
-            40: -80,  // Violin (1st violins - far left)
-            41: -40,  // Viola (center-left)
-            42: 40,   // Cello (center-right)
-            43: 60,   // Contrabass (right)
-            44: -60,  // Tremolo Strings
-            45: -20,  // Pizzicato Strings
+            40: -50,  // Violin (1st violins - far left)
+            41: -30,  // Viola (center-left)
+            42: 30,   // Cello (center-right)
+            43: 45,   // Contrabass (right)
+            44: -40,  // Tremolo Strings
+            45: -15,  // Pizzicato Strings
             46: 0,    // Orchestral Harp (center)
-            47: 80,   // Timpani (far right)
+            47: 55,   // Timpani (far right)
             
             // String ensembles
-            48: -60, 49: -40, 50: -40, 51: -20,
+            48: -40, 49: -30, 50: -30, 51: -15,
             
             // Choir/Vocals - spread for multi-part arrangements
-            52: -20,  // Choir Aahs - left
-            53: 20,   // Voice Oohs - right
-            54: -10,  // Synth Voice - slightly left
+            52: -15,  // Choir Aahs - left
+            53: 15,   // Voice Oohs - right
+            54: -8,   // Synth Voice - slightly left
             55: 0,    // Orchestra Hit - center
             
             // Brass
-            56: 40,   // Trumpet (right)
-            57: 60,   // Trombone (right)
-            58: 80,   // Tuba (far right)
-            59: 40,   // Muted Trumpet
-            60: 20,   // French Horn (center-right)
-            61: 40,   // Brass Section
-            62: 40, 63: 40,
+            56: 30,   // Trumpet (right)
+            57: 45,   // Trombone (right)
+            58: 55,   // Tuba (far right)
+            59: 30,   // Muted Trumpet
+            60: 15,   // French Horn (center-right)
+            61: 30,   // Brass Section
+            62: 30, 63: 30,
             
             // Saxophones - center-left
-            64: -20, 65: -20, 66: -20, 67: -20,
+            64: -15, 65: -15, 66: -15, 67: -15,
             
             // Double reeds - left
-            68: -60,  // Oboe
-            69: -60,  // English Horn
-            70: -40,  // Bassoon
-            71: -60,  // Clarinet
+            68: -40,  // Oboe
+            69: -40,  // English Horn
+            70: -30,  // Bassoon
+            71: -40,  // Clarinet
             
             // Flutes - far left
-            72: -80,  // Piccolo
-            73: -80,  // Flute
-            74: -60,  // Recorder
-            75: -60,  // Pan Flute
-            76: -40, 77: -40, 78: -40, 79: -40,
+            72: -50,  // Piccolo
+            73: -50,  // Flute
+            74: -40,  // Recorder
+            75: -40,  // Pan Flute
+            76: -30, 77: -30, 78: -30, 79: -30,
             
             // Synth leads - varied
-            80: -20, 81: 20, 82: -20, 83: 20, 84: 0, 85: 0, 86: -20, 87: 20,
+            80: -15, 81: 15, 82: -15, 83: 15, 84: 0, 85: 0, 86: -15, 87: 15,
             
             // Synth pads - wide/center
             88: 0, 89: 0, 90: 0, 91: 0, 92: 0, 93: 0, 94: 0, 95: 0,
@@ -990,10 +990,10 @@ export class MidiParser {
             96: 0, 97: 0, 98: 0, 99: 0, 100: 0, 101: 0, 102: 0, 103: 0,
             
             // Ethnic instruments - varied
-            104: -20, 105: 20, 106: -20, 107: 20, 108: 0, 109: 0, 110: -20, 111: 20,
+            104: -15, 105: 15, 106: -15, 107: 15, 108: 0, 109: 0, 110: -15, 111: 15,
             
             // Percussion - right side
-            112: 60, 113: 60, 114: 60, 115: 60, 116: 80, 117: 80, 118: 80, 119: 80,
+            112: 45, 113: 45, 114: 45, 115: 45, 116: 55, 117: 55, 118: 55, 119: 55,
             
             // Sound effects
             120: 0, 121: 0, 122: 0, 123: 0, 124: 0, 125: 0, 126: 0, 127: 0

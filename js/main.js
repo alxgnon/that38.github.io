@@ -484,6 +484,10 @@ function showShortcuts() {
             <span class="shortcut-desc">Play/Pause</span>
         </div>
         <div class="shortcut-item">
+            <span class="shortcut-key">Shift+Space</span>
+            <span class="shortcut-desc">Play from current position</span>
+        </div>
+        <div class="shortcut-item">
             <span class="shortcut-key">Enter</span>
             <span class="shortcut-desc">Stop and return to start</span>
         </div>
@@ -859,10 +863,16 @@ document.addEventListener('keydown', (e) => {
     // Playback shortcuts
     if (e.code === 'Space') {
         e.preventDefault();
-        if (pianoRoll.isPlaying && !pianoRoll.isPaused) {
-            pianoRoll.pause();
+        if (e.shiftKey) {
+            // Shift+Space: Play from current position
+            pianoRoll.playFromCurrentPosition();
         } else {
-            pianoRoll.play();
+            // Space: Play/Pause
+            if (pianoRoll.isPlaying && !pianoRoll.isPaused) {
+                pianoRoll.pause();
+            } else {
+                pianoRoll.play();
+            }
         }
         updatePlayButton();
     }

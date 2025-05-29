@@ -334,10 +334,12 @@ export class AudioEngine {
                 // Sort automation points by tick position
                 const sortedAutomation = [...volumeAutomation].sort((a, b) => a.tick - b.tick);
                 
-                // Use provided tick duration or calculate from note duration
+                // Use provided tick duration for absolute timing
+                // tickDuration should be the actual ms per tick from the ORG file
                 const actualTickDuration = tickDuration || (duration / Math.max(...sortedAutomation.map(p => p.tick), 1));
                 
                 sortedAutomation.forEach((point, index) => {
+                    // point.tick is the relative tick offset from note start
                     const time = startTime + (point.tick * actualTickDuration);
                     const vol = point.volume * ORG_VELOCITY_SCALE;
                     const automationVolume = Math.pow(10, ((vol - 255) * 8) / 2000);
@@ -358,9 +360,11 @@ export class AudioEngine {
             // Apply pan automation if provided
             if (panAutomation && panAutomation.length > 0) {
                 const sortedPanAutomation = [...panAutomation].sort((a, b) => a.tick - b.tick);
+                // Use provided tick duration for absolute timing
                 const actualTickDuration = tickDuration || (duration / Math.max(...sortedPanAutomation.map(p => p.tick), 1));
                 
                 sortedPanAutomation.forEach(point => {
+                    // point.tick is the relative tick offset from note start
                     const time = startTime + (point.tick * actualTickDuration);
                     panner.pan.linearRampToValueAtTime(point.pan / 100, time);
                 });

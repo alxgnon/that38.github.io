@@ -174,13 +174,13 @@ export class PianoRoll {
     }
 
 
-    play() {
+    play(fromMeasure = null) {
         if (!this.isPlaying) {
             this.isPlaying = true;
             
-            if (!this.isPaused) {
-                // Starting fresh - always start from beginning
-                this.currentMeasure = 0;
+            if (!this.isPaused || fromMeasure !== null) {
+                // Starting fresh or from specific measure
+                this.currentMeasure = fromMeasure !== null ? fromMeasure : 0;
                 
                 // Update scroll position if in follow mode
                 if (this.followMode) {
@@ -196,6 +196,21 @@ export class PianoRoll {
             this.playbackEngine.setLoop(this.loopEnabled, this.loopStart, this.loopEnd);
             this.playbackEngine.play(this.currentMeasure);
         }
+    }
+    
+    playFromCurrentPosition() {
+        // Calculate the measure visible at the beginning (left edge) of the screen
+        const measureWidth = GRID_WIDTH * BEATS_PER_MEASURE;
+        const currentViewMeasure = Math.floor((this.scrollX) / measureWidth);
+        const measureToPlay = Math.max(0, currentViewMeasure);
+        
+        // Stop if playing
+        if (this.isPlaying) {
+            this.stop();
+        }
+        
+        // Play from the calculated measure
+        this.play(measureToPlay);
     }
 
     pause() {
@@ -533,10 +548,11 @@ export class PianoRoll {
         const measureWidth = GRID_WIDTH * BEATS_PER_MEASURE;
         
         const songData = {
-            version: '1.1',
-            name: 'Untitled',
+            fileType: 'o72-song',
+            version: '2.0',
             tempo: this.currentBPM,
             timeSignature: `${BEATS_PER_MEASURE}/4`,
+            orgMsPerTick: this.orgMsPerTick || null, // Preserve ORG timing info
             loop: {
                 enabled: this.loopEnabled,
                 startMeasure: this.loopStart,
@@ -551,6 +567,36 @@ export class PianoRoll {
                 // Convert width to duration in beats
                 const duration = note.width / beatWidth;
                 
+                // Process volume automation - remove absolutePosition, keep only tick
+                let volumeAutomation = null;
+                if (note.volumeAutomation && Array.isArray(note.volumeAutomation)) {
+                    if (note.volumeAutomation.length > 0) {
+                        // Map to new format with only tick and volume
+                        volumeAutomation = note.volumeAutomation.map(point => ({
+                            tick: point.tick,
+                            volume: point.volume
+                        }));
+                    } else {
+                        // Preserve empty arrays
+                        volumeAutomation = [];
+                    }
+                }
+                
+                // Process pan automation - keep only tick and pan
+                let panAutomation = null;
+                if (note.panAutomation && Array.isArray(note.panAutomation)) {
+                    if (note.panAutomation.length > 0) {
+                        // Map to new format with only tick and pan
+                        panAutomation = note.panAutomation.map(point => ({
+                            tick: point.tick,
+                            pan: point.pan
+                        }));
+                    } else {
+                        // Preserve empty arrays
+                        panAutomation = [];
+                    }
+                }
+                
                 return {
                     pitch: note.key,
                     measure: measure,
@@ -560,8 +606,8 @@ export class PianoRoll {
                     pan: note.pan,
                     instrument: note.instrument,
                     pipi: note.pipi || 0,
-                    volumeAutomation: note.volumeAutomation || null,
-                    panAutomation: note.panAutomation || null
+                    volumeAutomation: volumeAutomation,
+                    panAutomation: panAutomation
                 };
             })
         };
@@ -578,6 +624,11 @@ export class PianoRoll {
             
             const songData = JSON.parse(jsonString);
             
+            // Check file type for version 2.0+
+            if (songData.fileType && songData.fileType !== 'o72-song') {
+                throw new Error('Invalid file type. Expected o72-song file.');
+            }
+            
             // Clear existing notes and org info
             this.noteManager.clearAll();
             this.orgTrackInfo = null;
@@ -585,6 +636,11 @@ export class PianoRoll {
             // Set tempo
             if (songData.tempo) {
                 this.setTempo(songData.tempo);
+            }
+            
+            // Restore ORG timing info if available
+            if (songData.orgMsPerTick) {
+                this.orgMsPerTick = songData.orgMsPerTick;
             }
             
             // Set loop settings
@@ -607,12 +663,56 @@ export class PianoRoll {
                 const beatWidth = GRID_WIDTH / GRID_SUBDIVISIONS;
                 const measureWidth = GRID_WIDTH * BEATS_PER_MEASURE;
                 
+                // Calculate pixels per tick based on ORG timing or default
+                let pixelsPerTick;
+                if (this.orgMsPerTick) {
+                    // Calculate based on actual ORG tick duration
+                    const beatDuration = 60 / this.currentBPM; // seconds per beat
+                    const ticksPerBeat = (beatDuration * 1000) / this.orgMsPerTick;
+                    pixelsPerTick = GRID_WIDTH / ticksPerBeat;
+                } else {
+                    // Default assumption
+                    pixelsPerTick = beatWidth / 48;
+                }
+                
                 songData.notes.forEach(noteData => {
                     // Handle new format (measure/beat/duration)
                     if (noteData.measure !== undefined) {
                         const x = PIANO_KEY_WIDTH + (noteData.measure * measureWidth) + (noteData.beat * beatWidth);
                         const y = (NUM_OCTAVES * NOTES_PER_OCTAVE - 1 - noteData.pitch) * NOTE_HEIGHT;
                         const width = noteData.duration * beatWidth;
+                        
+                        // Process volume automation
+                        let volumeAutomation = null;
+                        if (noteData.volumeAutomation && noteData.volumeAutomation.length > 0) {
+                            // For version 2.0, calculate position from tick
+                            if (songData.version === '2.0') {
+                                volumeAutomation = noteData.volumeAutomation.map(point => ({
+                                    position: point.tick * pixelsPerTick,
+                                    tick: point.tick,
+                                    volume: point.volume
+                                }));
+                            } else {
+                                // For older versions, keep the data as-is
+                                volumeAutomation = noteData.volumeAutomation;
+                            }
+                        }
+                        
+                        // Process pan automation
+                        let panAutomation = null;
+                        if (noteData.panAutomation && noteData.panAutomation.length > 0) {
+                            // For version 2.0, calculate position from tick
+                            if (songData.version === '2.0') {
+                                panAutomation = noteData.panAutomation.map(point => ({
+                                    position: point.tick * pixelsPerTick,
+                                    tick: point.tick,
+                                    pan: point.pan
+                                }));
+                            } else {
+                                // For older versions, keep the data as-is
+                                panAutomation = noteData.panAutomation;
+                            }
+                        }
                         
                         this.noteManager.createNote({
                             x: x,
@@ -624,8 +724,8 @@ export class PianoRoll {
                             pan: noteData.pan || 0,
                             instrument: noteData.instrument || 'M00',
                             pipi: noteData.pipi || 0,
-                            volumeAutomation: noteData.volumeAutomation || null,
-                            panAutomation: noteData.panAutomation || null
+                            volumeAutomation: volumeAutomation,
+                            panAutomation: panAutomation
                         });
                     } else {
                         // Handle old format (x/y/width/height) for backwards compatibility

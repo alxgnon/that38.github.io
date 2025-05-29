@@ -331,6 +331,65 @@ export class Renderer {
                     this.ctx.restore();
                 }
             }
+            
+            // Draw microtonal indicators
+            this.ctx.fillStyle = '#cccccc';
+            for (const note of notes) {
+                if (!this.pianoRoll.noteManager.selectedNotes.has(note)) {
+                    const microtone = note.key % 6;
+                    if (microtone !== 0) {
+                        // Determine number of arrows based on microtone value
+                        // In 72-EDO: 0 = 0 cents, 1 = 16.67 cents, 2 = 33.33 cents, 
+                        //            3 = 50 cents, 4 = 66.67 cents, 5 = 83.33 cents
+                        let numArrows = 0;
+                        let isUp = false;
+                        
+                        if (microtone === 1) {
+                            numArrows = 1; // 16.67 cents sharp
+                            isUp = true;
+                        } else if (microtone === 2) {
+                            numArrows = 2; // 33.33 cents sharp
+                            isUp = true;
+                        } else if (microtone === 3) {
+                            numArrows = 3; // 50 cents (quarter-tone) - can be shown as either 3 up or 3 down
+                            isUp = true; // Default to up arrows for quarter-tones
+                        } else if (microtone === 4) {
+                            numArrows = 2; // 66.67 cents sharp (or 33.33 cents flat from next note)
+                            isUp = false;
+                        } else if (microtone === 5) {
+                            numArrows = 1; // 83.33 cents sharp (or 16.67 cents flat from next note)
+                            isUp = false;
+                        }
+                        
+                        // Draw arrows
+                        const arrowSpacing = 4;
+                        const startX = note.x + note.width - 8 - (numArrows - 1) * arrowSpacing;
+                        const centerY = note.y + note.height / 2;
+                        
+                        for (let i = 0; i < numArrows; i++) {
+                            const arrowX = startX + i * arrowSpacing;
+                            
+                            if (!isUp) {
+                                // Down arrow for flat microtones
+                                this.ctx.beginPath();
+                                this.ctx.moveTo(arrowX, centerY - 1);
+                                this.ctx.lineTo(arrowX - 2, centerY - 4);
+                                this.ctx.lineTo(arrowX + 2, centerY - 4);
+                                this.ctx.closePath();
+                                this.ctx.fill();
+                            } else {
+                                // Up arrow for sharp microtones
+                                this.ctx.beginPath();
+                                this.ctx.moveTo(arrowX, centerY + 1);
+                                this.ctx.lineTo(arrowX - 2, centerY + 4);
+                                this.ctx.lineTo(arrowX + 2, centerY + 4);
+                                this.ctx.closePath();
+                                this.ctx.fill();
+                            }
+                        }
+                    }
+                }
+            }
         }
         
         // Draw selected notes on top
@@ -394,6 +453,64 @@ export class Renderer {
             this.ctx.fillStyle = isSelected ? '#ffffff' : '#ffff00';
             this.ctx.font = 'bold 10px Arial';
             this.ctx.fillText('P', note.x + 2, note.y + 10);
+            this.ctx.restore();
+        }
+        
+        // Draw microtonal indicator arrows
+        const microtone = note.key % 6;
+        if (microtone !== 0) {
+            this.ctx.save();
+            this.ctx.fillStyle = isSelected ? '#ffffff' : '#cccccc';
+            
+            // Determine number of arrows based on microtone value
+            // In 72-EDO: 0 = 0 cents, 1 = 16.67 cents, 2 = 33.33 cents, 
+            //            3 = 50 cents, 4 = 66.67 cents, 5 = 83.33 cents
+            let numArrows = 0;
+            let isUp = false;
+            
+            if (microtone === 1) {
+                numArrows = 1; // 16.67 cents sharp
+                isUp = true;
+            } else if (microtone === 2) {
+                numArrows = 2; // 33.33 cents sharp
+                isUp = true;
+            } else if (microtone === 3) {
+                numArrows = 3; // 50 cents (quarter-tone) - can be shown as either 3 up or 3 down
+                isUp = true; // Default to up arrows for quarter-tones
+            } else if (microtone === 4) {
+                numArrows = 2; // 66.67 cents sharp (or 33.33 cents flat from next note)
+                isUp = false;
+            } else if (microtone === 5) {
+                numArrows = 1; // 83.33 cents sharp (or 16.67 cents flat from next note)
+                isUp = false;
+            }
+            
+            // Draw arrows
+            const arrowSpacing = 4;
+            const startX = note.x + note.width - 8 - (numArrows - 1) * arrowSpacing;
+            const centerY = note.y + note.height / 2;
+            
+            for (let i = 0; i < numArrows; i++) {
+                const arrowX = startX + i * arrowSpacing;
+                
+                if (!isUp) {
+                    // Down arrow for flat microtones
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(arrowX, centerY - 1);
+                    this.ctx.lineTo(arrowX - 2, centerY - 4);
+                    this.ctx.lineTo(arrowX + 2, centerY - 4);
+                    this.ctx.closePath();
+                    this.ctx.fill();
+                } else {
+                    // Up arrow for sharp microtones
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(arrowX, centerY + 1);
+                    this.ctx.lineTo(arrowX - 2, centerY + 4);
+                    this.ctx.lineTo(arrowX + 2, centerY + 4);
+                    this.ctx.closePath();
+                    this.ctx.fill();
+                }
+            }
             this.ctx.restore();
         }
         
@@ -481,7 +598,12 @@ export class Renderer {
             } else if (isBlackKey) {
                 cacheCtx.fillStyle = COLORS.blackKey;
             } else {
-                cacheCtx.fillStyle = COLORS.whiteKey;
+                // Slightly darker shade for B and E keys to help distinguish boundaries
+                if ((noteInScale === 4 || noteInScale === 11) && microtone === 0) {
+                    cacheCtx.fillStyle = '#353535';
+                } else {
+                    cacheCtx.fillStyle = COLORS.whiteKey;
+                }
             }
             
             cacheCtx.fillRect(0, y, PIANO_KEY_WIDTH - 1, NOTE_HEIGHT);
@@ -489,6 +611,28 @@ export class Renderer {
             // Draw key border
             cacheCtx.strokeStyle = COLORS.keyBorder;
             cacheCtx.strokeRect(0, y, PIANO_KEY_WIDTH - 1, NOTE_HEIGHT);
+            
+            // Draw small notch markers between B/C and E/F
+            if ((noteInScale === 0 || noteInScale === 5) && microtone === 0) {
+                // Draw small triangular notches on the right edge
+                cacheCtx.fillStyle = '#555';
+                cacheCtx.beginPath();
+                cacheCtx.moveTo(PIANO_KEY_WIDTH - 1, y);
+                cacheCtx.lineTo(PIANO_KEY_WIDTH - 5, y - 2);
+                cacheCtx.lineTo(PIANO_KEY_WIDTH - 5, y + 2);
+                cacheCtx.closePath();
+                cacheCtx.fill();
+                
+                // Also add a subtle line for additional clarity
+                cacheCtx.strokeStyle = '#444';
+                cacheCtx.lineWidth = 0.5;
+                cacheCtx.beginPath();
+                cacheCtx.moveTo(5, y);
+                cacheCtx.lineTo(PIANO_KEY_WIDTH - 6, y);
+                cacheCtx.stroke();
+                cacheCtx.lineWidth = 1;
+            }
+            
             
             // Draw note label for C notes and at regular intervals
             if ((noteInScale === 0 && microtone === 0) || (keyInOctave % 12 === 0)) {

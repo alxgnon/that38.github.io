@@ -371,8 +371,8 @@ async function handleImportOrg() {
             try {
                 const buffer = await file.arrayBuffer();
                 await pianoRoll.loadOrgFile(buffer);
-                // Convert to .json extension for saving
-                currentFilename = file.name.replace(/\.org$/i, '.json');
+                // Convert to .o72.json extension for saving
+                currentFilename = file.name.replace(/\.org$/i, '.o72.json');
                 updatePageTitle();
                 modalManager.notify(`Loaded: ${file.name}`, 'info');
             } catch (error) {
@@ -395,8 +395,8 @@ async function handleImportMidi() {
             try {
                 const buffer = await file.arrayBuffer();
                 await pianoRoll.loadMidiFile(buffer);
-                // Convert to .json extension for saving
-                currentFilename = file.name.replace(/\.(mid|midi)$/i, '.json');
+                // Convert to .o72.json extension for saving
+                currentFilename = file.name.replace(/\.(mid|midi)$/i, '.o72.json');
                 updatePageTitle();
                 modalManager.notify(`Loaded: ${file.name}`, 'info');
             } catch (error) {
@@ -632,7 +632,7 @@ function handleSave() {
  */
 function handleSaveAs() {
     const input = document.getElementById('saveAsFilename');
-    input.value = currentFilename || 'song.json';
+    input.value = currentFilename || 'song.o72.json';
     
     // Set up event handlers
     const modal = document.getElementById('saveAsModal');
@@ -649,8 +649,8 @@ function handleSaveAs() {
     const handleConfirm = () => {
         let filename = input.value.trim();
         if (filename) {
-            if (!filename.endsWith('.json')) {
-                filename += '.json';
+            if (!filename.endsWith('.o72.json')) {
+                filename += '.o72.json';
             }
             currentFilename = filename;
             updatePageTitle();
@@ -706,7 +706,7 @@ function downloadSong(filename) {
 function handleOpen() {
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = '.json';
+    input.accept = '.o72.json,.json';
     
     input.onchange = async (e) => {
         const file = e.target.files[0];
@@ -742,8 +742,8 @@ async function loadOrgFromPath(path) {
         await pianoRoll.loadOrgFile(buffer);
         
         const filename = path.split('/').pop();
-        // Convert to .json extension for saving
-        currentFilename = filename.replace(/\.org$/i, '.json');
+        // Convert to .o72.json extension for saving
+        currentFilename = filename.replace(/\.org$/i, '.o72.json');
         updatePageTitle();
         modalManager.notify(`Loaded: ${filename}`, 'info');
     } catch (error) {
@@ -767,8 +767,8 @@ async function loadMidiFromPath(path) {
         await pianoRoll.loadMidiFile(buffer);
         
         const filename = path.split('/').pop();
-        // Convert to .json extension for saving
-        currentFilename = filename.replace(/\.(mid|midi)$/i, '.json');
+        // Convert to .o72.json extension for saving
+        currentFilename = filename.replace(/\.(mid|midi)$/i, '.o72.json');
         updatePageTitle();
         modalManager.notify(`Loaded: ${filename}`, 'info');
     } catch (error) {

@@ -58,9 +58,10 @@ export class NoteManager {
     /**
      * Delete notes in a region
      * @param {Object} bounds - Region bounds {x1, y1, x2, y2}
+     * @param {number} scaleFactor - Optional scale factor for high-res mode
      */
-    deleteNotesInRegion(bounds) {
-        const notesToDelete = this.getNotesInRegion(bounds);
+    deleteNotesInRegion(bounds, scaleFactor = 1) {
+        const notesToDelete = this.getNotesInRegion(bounds, scaleFactor);
         notesToDelete.forEach(note => this.deleteNote(note));
     }
 
@@ -68,44 +69,55 @@ export class NoteManager {
      * Select notes in a region
      * @param {Object} bounds - Region bounds {x1, y1, x2, y2}
      * @param {boolean} addToSelection - Whether to add to existing selection
+     * @param {number} scaleFactor - Optional scale factor for high-res mode
      */
-    selectNotesInRegion(bounds, addToSelection = false) {
+    selectNotesInRegion(bounds, addToSelection = false, scaleFactor = 1) {
         if (!addToSelection) {
             this.selectedNotes.clear();
         }
         
-        const notesInRegion = this.getNotesInRegion(bounds);
+        const notesInRegion = this.getNotesInRegion(bounds, scaleFactor);
         notesInRegion.forEach(note => this.selectedNotes.add(note));
     }
 
     /**
      * Get notes in a region
      * @param {Object} bounds - Region bounds {x1, y1, x2, y2}
+     * @param {number} scaleFactor - Optional scale factor for high-res mode
      * @returns {Array} Notes in the region
      */
-    getNotesInRegion(bounds) {
+    getNotesInRegion(bounds, scaleFactor = 1) {
         const minX = Math.min(bounds.x1, bounds.x2);
         const maxX = Math.max(bounds.x1, bounds.x2);
         const minY = Math.min(bounds.y1, bounds.y2);
         const maxY = Math.max(bounds.y1, bounds.y2);
         
-        return this.notes.filter(note => 
-            note.x < maxX && note.x + note.width > minX &&
-            note.y < maxY && note.y + note.height > minY
-        );
+        return this.notes.filter(note => {
+            // Scale note position for comparison
+            const scaledX = PIANO_KEY_WIDTH + (note.x - PIANO_KEY_WIDTH) * scaleFactor;
+            const scaledWidth = note.width * scaleFactor;
+            
+            return scaledX < maxX && scaledX + scaledWidth > minX &&
+                   note.y < maxY && note.y + note.height > minY;
+        });
     }
 
     /**
      * Get note at a specific position
      * @param {number} x - X coordinate
      * @param {number} y - Y coordinate
+     * @param {number} scaleFactor - Optional scale factor for high-res mode
      * @returns {Object|null} Note at position or null
      */
-    getNoteAt(x, y) {
+    getNoteAt(x, y, scaleFactor = 1) {
         // Search in reverse order (top notes first)
         for (let i = this.notes.length - 1; i >= 0; i--) {
             const note = this.notes[i];
-            if (x >= note.x && x <= note.x + note.width &&
+            // Scale note position for comparison
+            const scaledX = PIANO_KEY_WIDTH + (note.x - PIANO_KEY_WIDTH) * scaleFactor;
+            const scaledWidth = note.width * scaleFactor;
+            
+            if (x >= scaledX && x <= scaledX + scaledWidth &&
                 y >= note.y && y <= note.y + note.height) {
                 return note;
             }
@@ -303,13 +315,13 @@ export class NoteManager {
     /**
      * Group notes by measure for performance
      */
-    groupNotesByMeasure() {
+    groupNotesByMeasure(gridWidth = GRID_WIDTH) {
         if (!this.needsNoteGrouping) return;
         
         this.notesByMeasure.clear();
         
         for (const note of this.notes) {
-            const measure = Math.floor((note.x - PIANO_KEY_WIDTH) / (GRID_WIDTH * BEATS_PER_MEASURE));
+            const measure = Math.floor((note.x - PIANO_KEY_WIDTH) / (gridWidth * BEATS_PER_MEASURE));
             if (!this.notesByMeasure.has(measure)) {
                 this.notesByMeasure.set(measure, []);
             }
@@ -323,10 +335,11 @@ export class NoteManager {
      * Get notes in visible measures
      * @param {number} startMeasure - First visible measure
      * @param {number} endMeasure - Last visible measure
+     * @param {number} gridWidth - Current grid width (for fine mode support)
      * @returns {Array} Notes in visible measures
      */
-    getNotesInMeasures(startMeasure, endMeasure) {
-        this.groupNotesByMeasure();
+    getNotesInMeasures(startMeasure, endMeasure, gridWidth = GRID_WIDTH) {
+        this.groupNotesByMeasure(gridWidth);
         
         const visibleNotes = [];
         for (let measure = startMeasure; measure <= endMeasure; measure++) {

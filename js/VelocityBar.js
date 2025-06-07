@@ -123,9 +123,14 @@ export class VelocityBar {
     
     findNoteAtX(x) {
         const notes = this.pianoRoll.noteManager.notes;
+        const scaleFactor = this.pianoRoll.gridWidth / this.pianoRoll.baseGridWidth;
+        
         for (const note of notes) {
+            // Scale note position for comparison
+            const scaledX = PIANO_KEY_WIDTH + (note.x - PIANO_KEY_WIDTH) * scaleFactor;
+            
             // Check if x is near the note's start position
-            if (Math.abs(x - note.x) < 5) {
+            if (Math.abs(x - scaledX) < 5) {
                 return note;
             }
         }
@@ -150,7 +155,7 @@ export class VelocityBar {
         // Draw playhead if playing or paused
         if (this.pianoRoll.isPlaying || this.pianoRoll.isPaused) {
             const currentMeasure = this.pianoRoll.currentMeasure;
-            const measureWidth = BEATS_PER_MEASURE * GRID_WIDTH;
+            const measureWidth = BEATS_PER_MEASURE * this.pianoRoll.gridWidth;
             const measureX = PIANO_KEY_WIDTH + currentMeasure * measureWidth;
             
             this.ctx.fillStyle = 'rgba(255, 68, 68, 0.1)';
@@ -160,7 +165,7 @@ export class VelocityBar {
         // Draw grid lines
         this.ctx.strokeStyle = '#333';
         this.ctx.lineWidth = 0.5;
-        const measureWidth = GRID_WIDTH * BEATS_PER_MEASURE;
+        const measureWidth = this.pianoRoll.gridWidth * BEATS_PER_MEASURE;
         for (let x = PIANO_KEY_WIDTH; x <= this.canvas.width + this.scrollX; x += measureWidth) {
             this.ctx.beginPath();
             this.ctx.moveTo(x, 0);
@@ -170,12 +175,14 @@ export class VelocityBar {
         
         // Draw note velocity bars
         const notes = this.pianoRoll.noteManager.notes;
+        const scaleFactor = this.pianoRoll.gridWidth / this.pianoRoll.baseGridWidth;
+        
         for (const note of notes) {
             // Skip if track is hidden
             if (this.pianoRoll.trackVisibility.get(note.instrument) === false) {
                 continue;
             }
-            const x = note.x;
+            const x = PIANO_KEY_WIDTH + (note.x - PIANO_KEY_WIDTH) * scaleFactor;
             const velocity = note.velocity || 100;
             const barHeight = (velocity / 127) * this.canvas.height;
             

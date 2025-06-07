@@ -1,8 +1,26 @@
 // Musical constants
-export const NOTES_PER_OCTAVE = 72; // 72 EDO tuning system
+export const NOTES_PER_OCTAVE = 38; // 38 EDO tuning system
 export const NUM_OCTAVES = 8;
-export const NOTES_PER_SEMITONE = 6; // 6 microtonal divisions per semitone
+export const NOTES_PER_SEMITONE = 3.17; // Approximate divisions per semitone in 38 EDO
 export const TOTAL_KEYS = NUM_OCTAVES * NOTES_PER_OCTAVE;
+
+// 12-tone to 38 EDO mapping (A-rooted meantone intervals starting from C)
+// Original A-based: A=0, A#=3, B=6, C=10, C#=13, D=16, D#=19, E=22, F=25, F#=28, G=32, G#=35
+// Shifted so C=0: subtract 10 from each, wrapping around at 38
+export const TWELVE_TO_38_EDO_MAP = {
+    0: 0,   // C (was 10 in A-based)
+    1: 3,   // C# (was 13 in A-based)
+    2: 6,   // D (was 16 in A-based)
+    3: 9,   // D# (was 19 in A-based)
+    4: 12,  // E (was 22 in A-based)
+    5: 15,  // F (was 25 in A-based)
+    6: 18,  // F# (was 28 in A-based)
+    7: 22,  // G (was 32 in A-based)
+    8: 25,  // G# (was 35 in A-based)
+    9: 28,  // A (was 0 in A-based, 0-10+38=28)
+    10: 31, // A# (was 3 in A-based, 3-10+38=31)
+    11: 34  // B (was 6 in A-based, 6-10+38=34)
+};
 
 // Audio constants
 export const BASE_FREQUENCY = 440; // A4 in Hz
@@ -18,7 +36,7 @@ export const GRID_SUBDIVISIONS = 4; // Each beat divided into 4 parts (16th note
 
 // UI dimensions
 export const PIANO_KEY_WIDTH = 60;
-export const NOTE_HEIGHT = 3;
+export const NOTE_HEIGHT = 7; // Adjusted for 38 EDO
 export const GRID_WIDTH = 40;
 export const TOTAL_MEASURES = 256;
 export const RESIZE_HANDLE_WIDTH = 8; // Pixels from edge to detect resize

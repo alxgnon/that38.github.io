@@ -24,7 +24,22 @@ export class Renderer {
         
         // Note name patterns
         this.noteNames = ['C', 'C♯', 'D', 'D♯', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'A♯', 'B'];
-        this.microtonalMarkers = ['', '↑', '⇈', '⇊', '↓', '↓↓'];
+        
+        // 12-tone to 38 EDO mapping (A-rooted meantone intervals starting from C)
+        this.twelveToThirtyEightMap = {
+            0: 0,   // C
+            1: 3,   // C#
+            2: 6,   // D
+            3: 9,   // D#
+            4: 12,  // E
+            5: 15,  // F
+            6: 18,  // F#
+            7: 22,  // G
+            8: 25,  // G#
+            9: 28,  // A
+            10: 31, // A#
+            11: 34  // B
+        };
         
         // Cached canvases for static elements
         this.gridCache = null;
@@ -144,15 +159,15 @@ export class Renderer {
         // Batch vertical lines for better performance
         this.ctx.save();
         
-        // Draw all thin lines first
+        // Draw beat lines
         this.ctx.strokeStyle = COLORS.grid;
         this.ctx.lineWidth = 1;
         this.ctx.beginPath();
         
-        for (let x = PIANO_KEY_WIDTH; x < endX; x += GRID_WIDTH) {
+        for (let x = PIANO_KEY_WIDTH; x < endX; x += this.pianoRoll.gridWidth) {
             if (x < startX) continue;
             
-            const beatIndex = (x - PIANO_KEY_WIDTH) / GRID_WIDTH;
+            const beatIndex = (x - PIANO_KEY_WIDTH) / this.pianoRoll.gridWidth;
             if (beatIndex % BEATS_PER_MEASURE !== 0) {
                 this.ctx.moveTo(x, startY);
                 this.ctx.lineTo(x, endY);
@@ -165,7 +180,7 @@ export class Renderer {
         this.ctx.lineWidth = 2;
         this.ctx.beginPath();
         
-        const measureWidth = GRID_WIDTH * BEATS_PER_MEASURE;
+        const measureWidth = this.pianoRoll.gridWidth * BEATS_PER_MEASURE;
         const firstMeasure = Math.floor((startX - PIANO_KEY_WIDTH) / measureWidth);
         const startMeasureX = PIANO_KEY_WIDTH + firstMeasure * measureWidth;
         
@@ -188,16 +203,16 @@ export class Renderer {
         this.ctx.font = '11px Arial';
         this.ctx.textAlign = 'center';
         
-        const startMeasure = Math.floor(this.pianoRoll.scrollX / (GRID_WIDTH * BEATS_PER_MEASURE));
+        const startMeasure = Math.floor(this.pianoRoll.scrollX / (this.pianoRoll.gridWidth * BEATS_PER_MEASURE));
         const endMeasure = Math.ceil((this.pianoRoll.scrollX + this.canvas.width) / 
-            (GRID_WIDTH * BEATS_PER_MEASURE));
+            (this.pianoRoll.gridWidth * BEATS_PER_MEASURE));
         
         // Draw measure numbers at the top of the visible area
         const yPosition = this.pianoRoll.scrollY + 12;
         
         for (let measure = startMeasure; measure <= endMeasure; measure++) {
-            const x = PIANO_KEY_WIDTH + measure * GRID_WIDTH * BEATS_PER_MEASURE;
-            this.ctx.fillText((measure + 1).toString(), x + GRID_WIDTH * 2, yPosition);
+            const x = PIANO_KEY_WIDTH + measure * this.pianoRoll.gridWidth * BEATS_PER_MEASURE;
+            this.ctx.fillText((measure + 1).toString(), x + this.pianoRoll.gridWidth * 2, yPosition);
         }
     }
 
@@ -207,8 +222,8 @@ export class Renderer {
     drawLoopMarkers() {
         if (!this.pianoRoll.loopEnabled) return;
         
-        const loopStartX = PIANO_KEY_WIDTH + this.pianoRoll.loopStart * GRID_WIDTH * BEATS_PER_MEASURE;
-        const loopEndX = PIANO_KEY_WIDTH + this.pianoRoll.loopEnd * GRID_WIDTH * BEATS_PER_MEASURE;
+        const loopStartX = PIANO_KEY_WIDTH + this.pianoRoll.loopStart * this.pianoRoll.gridWidth * BEATS_PER_MEASURE;
+        const loopEndX = PIANO_KEY_WIDTH + this.pianoRoll.loopEnd * this.pianoRoll.gridWidth * BEATS_PER_MEASURE;
         
         // Draw loop background
         this.ctx.fillStyle = COLORS.loopBackground;
@@ -268,10 +283,10 @@ export class Renderer {
         const viewTop = this.pianoRoll.scrollY - VISIBLE_AREA_PADDING;
         const viewBottom = this.pianoRoll.scrollY + this.canvas.height + VISIBLE_AREA_PADDING;
         
-        const startMeasure = Math.floor(viewLeft / (GRID_WIDTH * BEATS_PER_MEASURE));
-        const endMeasure = Math.ceil(viewRight / (GRID_WIDTH * BEATS_PER_MEASURE));
+        const startMeasure = Math.floor(viewLeft / (this.pianoRoll.gridWidth * BEATS_PER_MEASURE));
+        const endMeasure = Math.ceil(viewRight / (this.pianoRoll.gridWidth * BEATS_PER_MEASURE));
         
-        const visibleNotes = this.pianoRoll.noteManager.getNotesInMeasures(startMeasure, endMeasure);
+        const visibleNotes = this.pianoRoll.noteManager.getNotesInMeasures(startMeasure, endMeasure, this.pianoRoll.gridWidth);
         
         // Group notes by instrument for batch rendering
         const notesByInstrument = new Map();
@@ -304,11 +319,16 @@ export class Renderer {
             
             const instrumentColor = this.pianoRoll.getInstrumentColor(instrument);
             
+            // Scale factor for rendering
+            const scaleFactor = this.pianoRoll.gridWidth / this.pianoRoll.baseGridWidth;
+            
             // Draw all note bodies of this instrument first
             this.ctx.fillStyle = instrumentColor.note;
             for (const note of notes) {
                 if (!this.pianoRoll.noteManager.selectedNotes.has(note)) {
-                    this.ctx.fillRect(note.x, note.y, note.width, note.height);
+                    const scaledX = PIANO_KEY_WIDTH + (note.x - PIANO_KEY_WIDTH) * scaleFactor;
+                    const scaledWidth = note.width * scaleFactor;
+                    this.ctx.fillRect(scaledX, note.y, scaledWidth, note.height);
                 }
             }
             
@@ -317,74 +337,114 @@ export class Renderer {
             this.ctx.lineWidth = 1;
             for (const note of notes) {
                 if (!this.pianoRoll.noteManager.selectedNotes.has(note)) {
-                    this.ctx.strokeRect(note.x, note.y, note.width, note.height);
+                    const scaledX = PIANO_KEY_WIDTH + (note.x - PIANO_KEY_WIDTH) * scaleFactor;
+                    const scaledWidth = note.width * scaleFactor;
+                    this.ctx.strokeRect(scaledX, note.y, scaledWidth, note.height);
                 }
             }
             
             // Draw pipi indicators
             for (const note of notes) {
                 if (note.pipi && !this.pianoRoll.noteManager.selectedNotes.has(note)) {
+                    const scaledX = PIANO_KEY_WIDTH + (note.x - PIANO_KEY_WIDTH) * scaleFactor;
                     this.ctx.save();
                     this.ctx.fillStyle = '#ffff00';
                     this.ctx.font = 'bold 10px Arial';
-                    this.ctx.fillText('P', note.x + 2, note.y + 10);
+                    this.ctx.fillText('P', scaledX + 2, note.y + 10);
                     this.ctx.restore();
                 }
             }
             
-            // Draw microtonal indicators
+            // Draw microtonal indicators for 38 EDO
             this.ctx.fillStyle = '#cccccc';
             for (const note of notes) {
                 if (!this.pianoRoll.noteManager.selectedNotes.has(note)) {
-                    const microtone = note.key % 6;
-                    if (microtone !== 0) {
-                        // Determine number of arrows based on microtone value
-                        // In 72-EDO: 0 = 0 cents, 1 = 16.67 cents, 2 = 33.33 cents, 
-                        //            3 = 50 cents, 4 = 66.67 cents, 5 = 83.33 cents
+                    const keyInOctave = note.key % NOTES_PER_OCTAVE;
+                    
+                    // Check if this is NOT an exact 12-tone match
+                    let isExactMatch = false;
+                    const exactPositions = [0, 3, 6, 9, 12, 15, 18, 22, 25, 28, 31, 34]; // C, C#, D, D#, E, F, F#, G, G#, A, A#, B
+                    for (const edoStep of exactPositions) {
+                        if (keyInOctave === edoStep) {
+                            isExactMatch = true;
+                            break;
+                        }
+                    }
+                    
+                    if (!isExactMatch) {
+                        // Find the closest 12-tone notes (before and after)
+                        let closestLower = -1;
+                        let closestUpper = 38;
+                        let lowerNote = -1;
+                        let upperNote = -1;
+                        
+                        // Create sorted array of EDO positions
+                        const edoPositions = [0, 3, 6, 9, 12, 15, 18, 22, 25, 28, 31, 34]; // C, C#, D, D#, E, F, F#, G, G#, A, A#, B
+                        
+                        for (let i = 0; i < edoPositions.length; i++) {
+                            const edoStep = edoPositions[i];
+                            if (edoStep < keyInOctave && edoStep > closestLower) {
+                                closestLower = edoStep;
+                                lowerNote = i;
+                            }
+                            if (edoStep > keyInOctave && edoStep < closestUpper) {
+                                closestUpper = edoStep;
+                                upperNote = i;
+                            }
+                        }
+                        
+                        // Handle wrap-around at octave boundary
+                        if (closestUpper === 38 && keyInOctave > 35) {
+                            closestUpper = 38; // Next C
+                            upperNote = 0;
+                        }
+                        
+                        // Determine which 12-tone note we're closest to
+                        const distToLower = keyInOctave - closestLower;
+                        const distToUpper = closestUpper - keyInOctave;
+                        
                         let numArrows = 0;
                         let isUp = false;
                         
-                        if (microtone === 1) {
-                            numArrows = 1; // 16.67 cents sharp
-                            isUp = true;
-                        } else if (microtone === 2) {
-                            numArrows = 2; // 33.33 cents sharp
-                            isUp = true;
-                        } else if (microtone === 3) {
-                            numArrows = 3; // 50 cents (quarter-tone) - can be shown as either 3 up or 3 down
-                            isUp = true; // Default to up arrows for quarter-tones
-                        } else if (microtone === 4) {
-                            numArrows = 2; // 66.67 cents sharp (or 33.33 cents flat from next note)
-                            isUp = false;
-                        } else if (microtone === 5) {
-                            numArrows = 1; // 83.33 cents sharp (or 16.67 cents flat from next note)
-                            isUp = false;
+                        // Each step in 38 EDO is about 31.58 cents
+                        // Show arrows based on distance from nearest 12-tone note
+                        // Max 3 arrows to avoid clutter
+                        if (distToLower <= distToUpper) {
+                            numArrows = Math.min(distToLower, 3);
+                            isUp = true; // Sharp from lower note
+                        } else {
+                            numArrows = Math.min(distToUpper, 3);
+                            isUp = false; // Flat from upper note
                         }
                         
                         // Draw arrows
-                        const arrowSpacing = 4;
-                        const startX = note.x + note.width - 8 - (numArrows - 1) * arrowSpacing;
-                        const centerY = note.y + note.height / 2;
-                        
-                        for (let i = 0; i < numArrows; i++) {
-                            const arrowX = startX + i * arrowSpacing;
+                        if (numArrows > 0) {
+                            const scaledX = PIANO_KEY_WIDTH + (note.x - PIANO_KEY_WIDTH) * scaleFactor;
+                            const scaledWidth = note.width * scaleFactor;
+                            const arrowSpacing = 4;
+                            const startX = scaledX + scaledWidth - 8 - (numArrows - 1) * arrowSpacing;
+                            const arrowY = note.y + note.height; // Position at bottom of note
                             
-                            if (!isUp) {
-                                // Down arrow for flat microtones
-                                this.ctx.beginPath();
-                                this.ctx.moveTo(arrowX, centerY - 1);
-                                this.ctx.lineTo(arrowX - 2, centerY - 4);
-                                this.ctx.lineTo(arrowX + 2, centerY - 4);
-                                this.ctx.closePath();
-                                this.ctx.fill();
-                            } else {
-                                // Up arrow for sharp microtones
-                                this.ctx.beginPath();
-                                this.ctx.moveTo(arrowX, centerY + 1);
-                                this.ctx.lineTo(arrowX - 2, centerY + 4);
-                                this.ctx.lineTo(arrowX + 2, centerY + 4);
-                                this.ctx.closePath();
-                                this.ctx.fill();
+                            for (let i = 0; i < numArrows; i++) {
+                                const arrowX = startX + i * arrowSpacing;
+                                
+                                if (!isUp) {
+                                    // Down arrow for flat microtones
+                                    this.ctx.beginPath();
+                                    this.ctx.moveTo(arrowX, arrowY + 3);
+                                    this.ctx.lineTo(arrowX - 2, arrowY);
+                                    this.ctx.lineTo(arrowX + 2, arrowY);
+                                    this.ctx.closePath();
+                                    this.ctx.fill();
+                                } else {
+                                    // Up arrow for sharp microtones
+                                    this.ctx.beginPath();
+                                    this.ctx.moveTo(arrowX, arrowY);
+                                    this.ctx.lineTo(arrowX - 2, arrowY + 3);
+                                    this.ctx.lineTo(arrowX + 2, arrowY + 3);
+                                    this.ctx.closePath();
+                                    this.ctx.fill();
+                                }
                             }
                         }
                     }
@@ -393,13 +453,18 @@ export class Renderer {
         }
         
         // Draw selected notes on top
+        const scaleFactor = this.pianoRoll.gridWidth / this.pianoRoll.baseGridWidth;
         for (const note of this.pianoRoll.noteManager.selectedNotes) {
             // Skip if track is hidden
             if (this.pianoRoll.trackVisibility.get(note.instrument) === false) {
                 continue;
             }
             
-            if (note.x + note.width >= viewLeft && note.x <= viewRight &&
+            // Scale note position for visibility check
+            const scaledX = PIANO_KEY_WIDTH + (note.x - PIANO_KEY_WIDTH) * scaleFactor;
+            const scaledWidth = note.width * scaleFactor;
+            
+            if (scaledX + scaledWidth >= viewLeft && scaledX <= viewRight &&
                 note.y + note.height >= viewTop && note.y <= viewBottom) {
                 this.drawNote(note);
             }
@@ -412,6 +477,11 @@ export class Renderer {
     drawNote(note) {
         const isSelected = this.pianoRoll.noteManager.selectedNotes.has(note);
         const isPlaying = this.pianoRoll.playingNotes && this.pianoRoll.playingNotes.has(note);
+        
+        // Scale note position and width based on current grid width
+        const scaleFactor = this.pianoRoll.gridWidth / this.pianoRoll.baseGridWidth;
+        const scaledX = PIANO_KEY_WIDTH + (note.x - PIANO_KEY_WIDTH) * scaleFactor;
+        const scaledWidth = note.width * scaleFactor;
         
         // Get instrument color
         const instrumentColor = this.pianoRoll.getInstrumentColor(note.instrument);
@@ -426,7 +496,7 @@ export class Renderer {
             this.ctx.fillStyle = instrumentColor.note;
         }
         
-        this.ctx.fillRect(note.x, note.y, note.width, note.height);
+        this.ctx.fillRect(scaledX, note.y, scaledWidth, note.height);
         
         // Draw note border
         if (isSelected) {
@@ -436,14 +506,14 @@ export class Renderer {
             this.ctx.strokeStyle = instrumentColor.border;
             this.ctx.lineWidth = 1;
         }
-        this.ctx.strokeRect(note.x, note.y, note.width, note.height);
+        this.ctx.strokeRect(scaledX, note.y, scaledWidth, note.height);
         
         // Draw velocity indicator (darker = lower velocity)
         // Skip velocity overlay for selected notes to keep orange color clear
         if (!isSelected) {
             const velocityAlpha = 1 - (note.velocity / 127) * 0.6;
             this.ctx.fillStyle = `rgba(0, 0, 0, ${velocityAlpha})`;
-            this.ctx.fillRect(note.x, note.y, note.width, note.height);
+            this.ctx.fillRect(scaledX, note.y, scaledWidth, note.height);
         }
         
         // Draw pipi indicator for notes with pipi=true
@@ -452,63 +522,103 @@ export class Renderer {
             // Draw a small "P" indicator in the top-left corner
             this.ctx.fillStyle = isSelected ? '#ffffff' : '#ffff00';
             this.ctx.font = 'bold 10px Arial';
-            this.ctx.fillText('P', note.x + 2, note.y + 10);
+            this.ctx.fillText('P', scaledX + 2, note.y + 10);
             this.ctx.restore();
         }
         
-        // Draw microtonal indicator arrows
-        const microtone = note.key % 6;
-        if (microtone !== 0) {
+        // Draw microtonal indicator arrows for 38 EDO
+        const keyInOctave = note.key % NOTES_PER_OCTAVE;
+        
+        // Check if this is NOT an exact 12-tone match
+        let isExactMatch = false;
+        const exactPositions = [0, 3, 6, 9, 12, 15, 18, 22, 25, 28, 31, 34]; // C, C#, D, D#, E, F, F#, G, G#, A, A#, B
+        for (const edoStep of exactPositions) {
+            if (keyInOctave === edoStep) {
+                isExactMatch = true;
+                break;
+            }
+        }
+        
+        // Debug logging for arrow issues
+        if (keyInOctave === 0 || keyInOctave === 3 || keyInOctave === 6 || keyInOctave === 28) {
+            console.log(`Note at key ${note.key}, octave position ${keyInOctave}, exact match: ${isExactMatch}`);
+        }
+        
+        if (!isExactMatch) {
             this.ctx.save();
             this.ctx.fillStyle = isSelected ? '#ffffff' : '#cccccc';
             
-            // Determine number of arrows based on microtone value
-            // In 72-EDO: 0 = 0 cents, 1 = 16.67 cents, 2 = 33.33 cents, 
-            //            3 = 50 cents, 4 = 66.67 cents, 5 = 83.33 cents
+            // Find the closest 12-tone notes (before and after)
+            let closestLower = -1;
+            let closestUpper = 38;
+            let lowerNote = -1;
+            let upperNote = -1;
+            
+            // Create sorted array of EDO positions
+            const edoPositions = [0, 3, 6, 9, 12, 15, 18, 22, 25, 28, 31, 34]; // C, C#, D, D#, E, F, F#, G, G#, A, A#, B
+            
+            for (let i = 0; i < edoPositions.length; i++) {
+                const edoStep = edoPositions[i];
+                if (edoStep < keyInOctave && edoStep > closestLower) {
+                    closestLower = edoStep;
+                    lowerNote = i;
+                }
+                if (edoStep > keyInOctave && edoStep < closestUpper) {
+                    closestUpper = edoStep;
+                    upperNote = i;
+                }
+            }
+            
+            // Handle wrap-around at octave boundary
+            if (closestUpper === 38 && keyInOctave > 35) {
+                closestUpper = 38; // Next C
+                upperNote = 0;
+            }
+            
+            // Determine which 12-tone note we're closest to
+            const distToLower = keyInOctave - closestLower;
+            const distToUpper = closestUpper - keyInOctave;
+            
             let numArrows = 0;
             let isUp = false;
             
-            if (microtone === 1) {
-                numArrows = 1; // 16.67 cents sharp
-                isUp = true;
-            } else if (microtone === 2) {
-                numArrows = 2; // 33.33 cents sharp
-                isUp = true;
-            } else if (microtone === 3) {
-                numArrows = 3; // 50 cents (quarter-tone) - can be shown as either 3 up or 3 down
-                isUp = true; // Default to up arrows for quarter-tones
-            } else if (microtone === 4) {
-                numArrows = 2; // 66.67 cents sharp (or 33.33 cents flat from next note)
-                isUp = false;
-            } else if (microtone === 5) {
-                numArrows = 1; // 83.33 cents sharp (or 16.67 cents flat from next note)
-                isUp = false;
+            // Each step in 38 EDO is about 31.58 cents
+            // Show arrows based on distance from nearest 12-tone note
+            // Max 3 arrows to avoid clutter
+            if (distToLower <= distToUpper) {
+                numArrows = Math.min(distToLower, 3);
+                isUp = true; // Sharp from lower note
+            } else {
+                numArrows = Math.min(distToUpper, 3);
+                isUp = false; // Flat from upper note
             }
             
             // Draw arrows
-            const arrowSpacing = 4;
-            const startX = note.x + note.width - 8 - (numArrows - 1) * arrowSpacing;
-            const centerY = note.y + note.height / 2;
-            
-            for (let i = 0; i < numArrows; i++) {
-                const arrowX = startX + i * arrowSpacing;
+            if (numArrows > 0) {
+                const arrowSpacing = 4;
+                const startX = scaledX + scaledWidth - 8 - (numArrows - 1) * arrowSpacing;
+                const arrowY = note.y + note.height; // Position at bottom of note
                 
-                if (!isUp) {
-                    // Down arrow for flat microtones
-                    this.ctx.beginPath();
-                    this.ctx.moveTo(arrowX, centerY - 1);
-                    this.ctx.lineTo(arrowX - 2, centerY - 4);
-                    this.ctx.lineTo(arrowX + 2, centerY - 4);
-                    this.ctx.closePath();
-                    this.ctx.fill();
-                } else {
-                    // Up arrow for sharp microtones
-                    this.ctx.beginPath();
-                    this.ctx.moveTo(arrowX, centerY + 1);
-                    this.ctx.lineTo(arrowX - 2, centerY + 4);
-                    this.ctx.lineTo(arrowX + 2, centerY + 4);
-                    this.ctx.closePath();
-                    this.ctx.fill();
+                for (let i = 0; i < numArrows; i++) {
+                    const arrowX = startX + i * arrowSpacing;
+                    
+                    if (!isUp) {
+                        // Down arrow for flat microtones
+                        this.ctx.beginPath();
+                        this.ctx.moveTo(arrowX, arrowY + 3);
+                        this.ctx.lineTo(arrowX - 2, arrowY);
+                        this.ctx.lineTo(arrowX + 2, arrowY);
+                        this.ctx.closePath();
+                        this.ctx.fill();
+                    } else {
+                        // Up arrow for sharp microtones
+                        this.ctx.beginPath();
+                        this.ctx.moveTo(arrowX, arrowY);
+                        this.ctx.lineTo(arrowX - 2, arrowY + 3);
+                        this.ctx.lineTo(arrowX + 2, arrowY + 3);
+                        this.ctx.closePath();
+                        this.ctx.fill();
+                    }
                 }
             }
             this.ctx.restore();
@@ -521,7 +631,7 @@ export class Renderer {
             this.ctx.fillStyle = '#fff';
             this.ctx.textAlign = note.pan < 0 ? 'left' : 'right';
             const panText = note.pan < 0 ? 'L' : 'R';
-            const textX = note.pan < 0 ? note.x + 2 : note.x + note.width - 2;
+            const textX = note.pan < 0 ? scaledX + 2 : scaledX + scaledWidth - 2;
             this.ctx.fillText(panText, textX, note.y + note.height - 2);
             this.ctx.restore();
         }
@@ -576,16 +686,28 @@ export class Renderer {
         // Draw keys
         for (let i = 0; i < this.pianoRoll.numKeys; i++) {
             const y = i * NOTE_HEIGHT;
-            const keyInOctave = (this.pianoRoll.numKeys - 1 - i) % NOTES_PER_OCTAVE;
-            const noteInScale = Math.floor(keyInOctave / 6);
-            const microtone = keyInOctave % 6;
-            const octave = Math.floor((this.pianoRoll.numKeys - 1 - i) / NOTES_PER_OCTAVE);
+            const keyNumber = this.pianoRoll.numKeys - 1 - i;
+            const keyInOctave = keyNumber % NOTES_PER_OCTAVE;
+            const octave = Math.floor(keyNumber / NOTES_PER_OCTAVE);
+            
+            // Find which 12-tone note this 38-EDO step is closest to
+            let closestNote = -1;
+            let minDistance = 38;
+            let isExactMatch = false;
+            
+            for (const [note, edoStep] of Object.entries(this.twelveToThirtyEightMap)) {
+                const distance = Math.abs(keyInOctave - edoStep);
+                if (distance < minDistance) {
+                    minDistance = distance;
+                    closestNote = parseInt(note);
+                    isExactMatch = (distance === 0);
+                }
+            }
             
             // Determine if this is a "black key" equivalent
-            const isBlackKey = [1, 3, 6, 8, 10].includes(noteInScale);
+            const isBlackKey = [1, 3, 6, 8, 10].includes(closestNote);
             
             // Check if key is pressed or hovered
-            const keyNumber = this.pianoRoll.numKeys - 1 - i;
             const isPressed = this.pianoRoll.inputHandler?.pressedKeys.has(keyNumber);
             const isHovered = i === this.pianoRoll.hoveredRow;
             
@@ -598,12 +720,7 @@ export class Renderer {
             } else if (isBlackKey) {
                 cacheCtx.fillStyle = COLORS.blackKey;
             } else {
-                // Slightly darker shade for B and E keys to help distinguish boundaries
-                if ((noteInScale === 4 || noteInScale === 11) && microtone === 0) {
-                    cacheCtx.fillStyle = '#353535';
-                } else {
-                    cacheCtx.fillStyle = COLORS.whiteKey;
-                }
+                cacheCtx.fillStyle = COLORS.whiteKey;
             }
             
             cacheCtx.fillRect(0, y, PIANO_KEY_WIDTH - 1, NOTE_HEIGHT);
@@ -612,37 +729,15 @@ export class Renderer {
             cacheCtx.strokeStyle = COLORS.keyBorder;
             cacheCtx.strokeRect(0, y, PIANO_KEY_WIDTH - 1, NOTE_HEIGHT);
             
-            // Draw small notch markers between B/C and E/F
-            if ((noteInScale === 0 || noteInScale === 5) && microtone === 0) {
-                // Draw small triangular notches on the right edge
-                cacheCtx.fillStyle = '#555';
-                cacheCtx.beginPath();
-                cacheCtx.moveTo(PIANO_KEY_WIDTH - 1, y);
-                cacheCtx.lineTo(PIANO_KEY_WIDTH - 5, y - 2);
-                cacheCtx.lineTo(PIANO_KEY_WIDTH - 5, y + 2);
-                cacheCtx.closePath();
-                cacheCtx.fill();
-                
-                // Also add a subtle line for additional clarity
-                cacheCtx.strokeStyle = '#444';
-                cacheCtx.lineWidth = 0.5;
-                cacheCtx.beginPath();
-                cacheCtx.moveTo(5, y);
-                cacheCtx.lineTo(PIANO_KEY_WIDTH - 6, y);
-                cacheCtx.stroke();
-                cacheCtx.lineWidth = 1;
-            }
             
             
-            // Draw note label for C notes and at regular intervals
-            if ((noteInScale === 0 && microtone === 0) || (keyInOctave % 12 === 0)) {
-                cacheCtx.fillStyle = isBlackKey ? '#aaa' : '#fff';
+            // Draw note label only for C notes (octave markers)
+            if (isExactMatch && closestNote === 0) {
+                cacheCtx.fillStyle = '#fff';
                 cacheCtx.font = '10px Arial';
                 cacheCtx.textAlign = 'right';
                 
-                const noteName = this.noteNames[noteInScale];
-                const microLabel = this.microtonalMarkers[microtone];
-                const label = `${noteName}${octave}${microLabel}`;
+                const label = `C${octave}`;
                 
                 cacheCtx.fillText(label, PIANO_KEY_WIDTH - 5, y + NOTE_HEIGHT - 2);
             }
@@ -687,7 +782,7 @@ export class Renderer {
         
         const currentMeasure = this.pianoRoll.currentMeasure;
         if (currentMeasure >= 0 && currentMeasure < this.pianoRoll.totalMeasures) {
-            const measureWidth = BEATS_PER_MEASURE * GRID_WIDTH;
+            const measureWidth = BEATS_PER_MEASURE * this.pianoRoll.gridWidth;
             const measureX = PIANO_KEY_WIDTH + currentMeasure * measureWidth;
             
             // Draw measure highlight

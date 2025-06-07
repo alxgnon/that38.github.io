@@ -48,6 +48,7 @@ export class PianoRoll {
         // Dimensions
         this.pianoKeyWidth = PIANO_KEY_WIDTH;
         this.noteHeight = NOTE_HEIGHT;
+        this.baseGridWidth = GRID_WIDTH;
         this.gridWidth = GRID_WIDTH;
         this.numOctaves = NUM_OCTAVES;
         this.notesPerOctave = NOTES_PER_OCTAVE;
@@ -64,6 +65,7 @@ export class PianoRoll {
         this.isPaused = false;
         this.currentMeasure = 0;
         this.gridSnap = true;
+        this.snapMode = 'normal'; // 'normal' or 'high-res'
         this.currentVelocity = DEFAULT_VELOCITY;
         this.currentSample = 'ORG_M00';
         this.hoveredRow = -1;
@@ -259,7 +261,8 @@ export class PianoRoll {
 
     snapXToGrid(x) {
         if (!this.gridSnap) return x - this.pianoKeyWidth;
-        const subdivisionWidth = this.gridWidth / GRID_SUBDIVISIONS;
+        const snapDivisions = this.getSnapDivisions();
+        const subdivisionWidth = this.gridWidth * this.beatsPerMeasure / snapDivisions;
         return Math.floor((x - this.pianoKeyWidth) / subdivisionWidth) * subdivisionWidth;
     }
 
@@ -334,6 +337,36 @@ export class PianoRoll {
             
             // Clear instrument colors to ensure consistent assignment
             this.instrumentColors.clear();
+            
+            // Auto-detect if this is a high-resolution song (Kero Blaster)
+            // Calculate total divisions per measure
+            const divisionsPerMeasure = orgData.header.stepsPerBar * orgData.header.beatsPerStep;
+            
+            // High-res if more than 16 divisions per measure (Cave Story standard)
+            const isHighRes = divisionsPerMeasure > 16;
+            
+            if (isHighRes) {
+                this.snapMode = 'high-res';
+                this.gridWidth = this.baseGridWidth * 2;
+                // Update UI
+                const snapModeBtn = document.getElementById('snapModeBtn');
+                if (snapModeBtn) {
+                    snapModeBtn.classList.add('high-res');
+                    snapModeBtn.querySelector('span').textContent = 'Snap: Fine';
+                }
+            } else {
+                this.snapMode = 'normal';
+                this.gridWidth = this.baseGridWidth;
+                // Update UI
+                const snapModeBtn = document.getElementById('snapModeBtn');
+                if (snapModeBtn) {
+                    snapModeBtn.classList.remove('high-res');
+                    snapModeBtn.querySelector('span').textContent = 'Snap: Normal';
+                }
+            }
+            
+            // Recalculate total width
+            this.totalWidth = this.pianoKeyWidth + (this.totalMeasures * this.beatsPerMeasure * this.gridWidth);
             
             // Store org-specific timing info
             this.orgMsPerTick = converted.msPerTick;
@@ -497,10 +530,10 @@ export class PianoRoll {
                         <div class="track-stats">${track.notes.length} notes</div>
                     </div>
                     <div class="track-controls">
-                        <button class="track-btn track-visibility ${track.visible ? 'active' : ''}" data-track="${track.name}" title="Toggle visibility">
+                        <button class="track-btn track-mute ${!track.visible ? 'muted' : ''}" data-track="${track.name}" title="${track.visible ? 'Mute track' : 'Unmute track'}">
                             ${track.visible ? 
-                                '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 3C3 3 0 8 0 8s3 5 8 5 8-5 8-5-3-5-8-5zm0 8c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm0-5c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg>' : 
-                                '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M13.3 2.7l-10.6 10.6c-.4.4-.4 1 0 1.4.4.4 1 .4 1.4 0l10.6-10.6c.4-.4.4-1 0-1.4-.4-.4-1-.4-1.4 0zM8 3C3 3 0 8 0 8s3 5 8 5c.9 0 1.7-.2 2.5-.5l-1.5-1.5c-.3.1-.6.2-1 .2-1.66 0-3-1.34-3-3 0-.4.1-.7.2-1L3.5 5.5C3.2 6.3 3 7.1 3 8c0 0-3-5 5-5 .9 0 1.7.2 2.5.5l1.5-1.5C10.7 3.2 9.4 3 8 3z"/></svg>'
+                                '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M3 5v6h3l4 4V1L6 5H3zm10.5 3c0-1.77-1-3.29-2.5-4.03v8.06c1.5-.74 2.5-2.26 2.5-4.03z"/></svg>' : 
+                                '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M3 5v6h3l4 4V1L6 5H3zm10.85 3L12 5.15v1.7L10.15 5l-.85.85L11.15 8 9.3 10.15l.85.85L12 9.15v1.7L13.85 10l.85-.85L12.85 8l1.85-1.85-.85-.85z"/></svg>'
                             }
                         </button>
                     </div>
@@ -509,16 +542,17 @@ export class PianoRoll {
             });
             
             // Add event listeners
-            content.querySelectorAll('.track-visibility').forEach(btn => {
+            content.querySelectorAll('.track-mute').forEach(btn => {
                 btn.addEventListener('click', (e) => {
-                    const button = e.target.closest('.track-visibility');
+                    const button = e.target.closest('.track-mute');
                     const trackName = button.getAttribute('data-track');
-                    this.toggleTrackVisibility(trackName);
-                    button.classList.toggle('active');
-                    const isActive = button.classList.contains('active');
-                    button.innerHTML = isActive ? 
-                        '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 3C3 3 0 8 0 8s3 5 8 5 8-5 8-5-3-5-8-5zm0 8c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm0-5c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg>' : 
-                        '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M13.3 2.7l-10.6 10.6c-.4.4-.4 1 0 1.4.4.4 1 .4 1.4 0l10.6-10.6c.4-.4.4-1 0-1.4-.4-.4-1-.4-1.4 0zM8 3C3 3 0 8 0 8s3 5 8 5c.9 0 1.7-.2 2.5-.5l-1.5-1.5c-.3.1-.6.2-1 .2-1.66 0-3-1.34-3-3 0-.4.1-.7.2-1L3.5 5.5C3.2 6.3 3 7.1 3 8c0 0-3-5 5-5 .9 0 1.7.2 2.5.5l1.5-1.5C10.7 3.2 9.4 3 8 3z"/></svg>';
+                    this.toggleTrackMute(trackName);
+                    button.classList.toggle('muted');
+                    const isMuted = button.classList.contains('muted');
+                    button.title = isMuted ? 'Unmute track' : 'Mute track';
+                    button.innerHTML = isMuted ? 
+                        '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M3 5v6h3l4 4V1L6 5H3zm10.85 3L12 5.15v1.7L10.15 5l-.85.85L11.15 8 9.3 10.15l.85.85L12 9.15v1.7L13.85 10l.85-.85L12.85 8l1.85-1.85-.85-.85z"/></svg>' :
+                        '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M3 5v6h3l4 4V1L6 5H3zm10.5 3c0-1.77-1-3.29-2.5-4.03v8.06c1.5-.74 2.5-2.26 2.5-4.03z"/></svg>';
                 });
             });
         }
@@ -529,11 +563,11 @@ export class PianoRoll {
         }
     }
     
-    toggleTrackVisibility(trackName) {
-        // Toggle visibility state
-        const currentVisibility = this.trackVisibility.get(trackName);
-        const newVisibility = currentVisibility === false ? true : false;
-        this.playbackEngine.setTrackVisibility(trackName, newVisibility);
+    toggleTrackMute(trackName) {
+        // Toggle mute state
+        const currentMuted = this.trackVisibility.get(trackName) === false;
+        const newVisibility = currentMuted ? true : false;
+        this.playbackEngine.setTrackMute(trackName, !newVisibility);
         
         // Update rendering
         this.renderer.markFullRedraw();
@@ -548,7 +582,7 @@ export class PianoRoll {
         const measureWidth = GRID_WIDTH * BEATS_PER_MEASURE;
         
         const songData = {
-            fileType: 'o72-song',
+            fileType: 'o38-song',
             version: '2.0',
             tempo: this.currentBPM,
             timeSignature: `${BEATS_PER_MEASURE}/4`,
@@ -625,8 +659,8 @@ export class PianoRoll {
             const songData = JSON.parse(jsonString);
             
             // Check file type for version 2.0+
-            if (songData.fileType && songData.fileType !== 'o72-song') {
-                throw new Error('Invalid file type. Expected o72-song file.');
+            if (songData.fileType && songData.fileType !== 'o38-song') {
+                throw new Error('Invalid file type. Expected o38-song file.');
             }
             
             // Clear existing notes and org info
@@ -837,5 +871,40 @@ export class PianoRoll {
             this.audioEngine.stopNote(keyNumber);
             this.previewNotes.delete(keyNumber);
         }
+    }
+    
+    /**
+     * Toggle between normal and high-resolution snap modes
+     */
+    toggleSnapMode() {
+        this.snapMode = this.snapMode === 'normal' ? 'high-res' : 'normal';
+        
+        // Update grid width based on mode
+        if (this.snapMode === 'high-res') {
+            this.gridWidth = this.baseGridWidth * 2; // Double the grid width
+        } else {
+            this.gridWidth = this.baseGridWidth;
+        }
+        
+        // Recalculate total width
+        this.totalWidth = this.pianoKeyWidth + (this.totalMeasures * this.beatsPerMeasure * this.gridWidth);
+        
+        // Adjust scroll position to maintain view
+        if (this.snapMode === 'high-res') {
+            this.scrollX *= 2;
+        } else {
+            this.scrollX /= 2;
+        }
+        
+        this.dirty = true;
+        this.renderer.markFullRedraw();
+        this.emit('scroll', { scrollX: this.scrollX, scrollY: this.scrollY });
+    }
+    
+    /**
+     * Get the current snap divisions based on snap mode
+     */
+    getSnapDivisions() {
+        return this.snapMode === 'high-res' ? 64 : GRID_SUBDIVISIONS;
     }
 }

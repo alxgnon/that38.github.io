@@ -72,6 +72,35 @@ canvas {
     width: 80px;
 }
 
+.snap-mode-button {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    background: #444;
+    border: 1px solid #666;
+    border-radius: 4px;
+    color: #ccc;
+    cursor: pointer;
+    font-size: 12px;
+    transition: all 0.2s;
+}
+
+.snap-mode-button:hover {
+    background: #555;
+    border-color: #777;
+}
+
+.snap-mode-button.high-res {
+    background: #2a5f3f;
+    border-color: #3a7f4f;
+    color: #fff;
+}
+
+.snap-mode-button.high-res svg rect {
+    width: 1px;
+}
+
 .control-spacer {
     flex: 1;
     min-width: 20px;
@@ -843,6 +872,17 @@ select:hover {
     background: #4a9eff;
     border-color: #357abd;
     color: #fff;
+}
+
+.track-btn.track-mute.muted {
+    background: #d32f2f;
+    border-color: #b71c1c;
+    color: #fff;
+}
+
+.track-btn.track-mute.muted:hover {
+    background: #f44336;
+    border-color: #d32f2f;
 }
 
 /* Mobile styles */

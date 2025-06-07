@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="google" content="notranslate">
-    <title>that72.org</title>
+    <title>that38.org</title>
     <link rel="icon" type="image/x-icon" href="favicon.ico">
     <link rel="stylesheet" href="css/styles.css?v=20250529174917">
 </head>
@@ -23,10 +23,11 @@
                     <div class="menu-option" id="menu-import-midi">Import MIDI (.mid)...</div>
                     <div class="menu-separator"></div>
                     <div class="menu-option has-submenu">
-                        <span>Sample Songs (12edo)</span>
+                        <span>Untuned Songs (12 EDO)</span>
                         <span class="submenu-arrow">›</span>
                         <div class="menu-submenu">
                             <div class="menu-option" data-org="songs/Pixel/all/">Cave Story (All Songs)...</div>
+                            <div class="menu-option" data-org="songs/Pixel/keroblaster/">Kero Blaster (All Songs)...</div>
                             <div class="menu-option" data-midi-dir="songs/classical/">Classical Music...</div>
                             <div class="menu-separator"></div>
                             <div class="menu-option" data-org="songs/Pixel/all/Mischievous Robot.org">Mischievous Robot</div>
@@ -35,6 +36,8 @@
                             <div class="menu-option" data-org="songs/Pixel/all/Torokos Theme.org">Torokos Theme</div>
                             <div class="menu-option" data-org="songs/Pixel/all/White.org">White</div>
                             <div class="menu-option" data-org="songs/Pixel/all/Wind Fortress.org">Wind Fortress</div>
+                            <div class="menu-separator"></div>
+                            <div class="menu-option" id="menu-tuning-help">How to tune a song...?</div>
                         </div>
                     </div>
                     <div class="menu-separator"></div>
@@ -105,7 +108,7 @@
         </div>
         
         <div id="controls">
-            <h1>that72.org</h1>
+            <h1>that38.org</h1>
             
             <div class="control-group transport">
                 <button id="playBtn" title="Play/Pause">
@@ -125,6 +128,18 @@
                 <label>
                     Volume: <input type="range" id="volumeSlider" min="0" max="100" step="1" value="30">
                 </label>
+            </div>
+            
+            <div class="control-group snap-mode-group">
+                <button id="snapModeBtn" class="snap-mode-button" title="Toggle High-Resolution Snap Mode">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                        <rect x="1" y="6" width="2" height="4"/>
+                        <rect x="5" y="6" width="2" height="4"/>
+                        <rect x="9" y="6" width="2" height="4"/>
+                        <rect x="13" y="6" width="2" height="4"/>
+                    </svg>
+                    <span>Snap: Normal</span>
+                </button>
             </div>
             
             <div class="control-spacer"></div>
@@ -228,6 +243,37 @@
                 <button class="modal-close">&times;</button>
             </div>
             <div id="trackInfoContent"></div>
+        </div>
+    </div>
+    
+    <!-- Tuning Help Modal -->
+    <div id="tuningHelpModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">How to Tune a Song for 38 EDO</h2>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body" style="padding: 20px; line-height: 1.6;">
+                <p><strong>Why do imported songs sound out of tune?</strong></p>
+                <p>This piano roll uses 38 equal divisions of the octave (38 EDO), which provides much finer pitch control than standard 12-tone music. However, the 12 standard notes don't align perfectly with 38 EDO's grid - they land on positions that create a specific temperament.</p>
+                
+                <p><strong>The current temperament uses these positions:</strong></p>
+                <ul style="font-family: monospace; margin: 10px 0;">
+                    <li>C = 0, C# = 3, D = 6, D# = 9, E = 12, F = 15</li>
+                    <li>F# = 18, G = 22, G# = 25, A = 28, A# = 31, B = 34</li>
+                </ul>
+                
+                <p><strong>How to tune a song:</strong></p>
+                <ol style="margin: 10px 0;">
+                    <li>Some notes may need to be shifted up or down by 1-2 steps to sound correct</li>
+                    <li>Listen for notes that sound "sour" or create unwanted beating</li>
+                    <li>Try moving these notes up or down one 38 EDO step at a time</li>
+                    <li>Chords may need different adjustments than melodic lines</li>
+                    <li>Trust your ears - the goal is to make it sound good to you!</li>
+                </ol>
+                
+                <p><strong>Tip:</strong> When creating or editing music in 38-EDO, microtonal arrow indicators help identify notes between standard pitches.</p>
+            </div>
         </div>
     </div>
     

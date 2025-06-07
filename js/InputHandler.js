@@ -95,12 +95,17 @@ export class InputHandler {
      * Check if mouse is in resize zone
      */
     isInResizeZone(note, x) {
+        // Scale note position for comparison
+        const scaleFactor = this.pianoRoll.gridWidth / this.pianoRoll.baseGridWidth;
+        const scaledX = PIANO_KEY_WIDTH + (note.x - PIANO_KEY_WIDTH) * scaleFactor;
+        const scaledWidth = note.width * scaleFactor;
+        
         // For narrow notes, make resize zones proportionally smaller
         let resizeZoneWidth;
-        if (note.width <= GRID_WIDTH) {
+        if (scaledWidth <= this.pianoRoll.gridWidth) {
             // For 1-unit notes, use very small resize zones (3 pixels each side)
             resizeZoneWidth = 3;
-        } else if (note.width <= GRID_WIDTH * 2) {
+        } else if (scaledWidth <= this.pianoRoll.gridWidth * 2) {
             // For 2-unit notes, use 5 pixels
             resizeZoneWidth = 5;
         } else {
@@ -109,8 +114,8 @@ export class InputHandler {
         }
         
         return {
-            left: x <= note.x + resizeZoneWidth,
-            right: x >= note.x + note.width - resizeZoneWidth
+            left: x <= scaledX + resizeZoneWidth,
+            right: x >= scaledX + scaledWidth - resizeZoneWidth
         };
     }
 
@@ -144,7 +149,8 @@ export class InputHandler {
         }
         
         // Check if clicking on a note
-        const note = this.pianoRoll.noteManager.getNoteAt(x, y);
+        const scaleFactor = this.pianoRoll.gridWidth / this.pianoRoll.baseGridWidth;
+        const note = this.pianoRoll.noteManager.getNoteAt(x, y, scaleFactor);
         
         if (note) {
             this.handleNoteClick(note, x, y, e);
@@ -162,7 +168,8 @@ export class InputHandler {
      * Handle right click
      */
     handleRightClick(x, y) {
-        const note = this.pianoRoll.noteManager.getNoteAt(x, y);
+        const scaleFactor = this.pianoRoll.gridWidth / this.pianoRoll.baseGridWidth;
+        const note = this.pianoRoll.noteManager.getNoteAt(x, y, scaleFactor);
         if (note) {
             this.pianoRoll.noteManager.deleteNote(note);
             this.pianoRoll.emit('notesChanged');
@@ -221,7 +228,12 @@ export class InputHandler {
     startDrag(note, x, y, isNoteSelected) {
         this.isDragging = true;
         this.dragNote = note;
-        this.dragStartX = x - note.x;
+        
+        // Convert screen position to note space
+        const scaleFactor = this.pianoRoll.gridWidth / this.pianoRoll.baseGridWidth;
+        const scaledNoteX = PIANO_KEY_WIDTH + (note.x - PIANO_KEY_WIDTH) * scaleFactor;
+        
+        this.dragStartX = x - scaledNoteX;
         this.dragStartY = y - note.y;
         
         if (!isNoteSelected && !this.shiftKeyHeld) {
@@ -296,7 +308,11 @@ export class InputHandler {
         const key = this.getKeyFromY(y);
         if (key < 0 || key >= NUM_OCTAVES * NOTES_PER_OCTAVE || x < PIANO_KEY_WIDTH) return;
         
-        const snappedX = this.pianoRoll.gridSnap ? this.pianoRoll.snapXToGrid(x) + PIANO_KEY_WIDTH : x;
+        // Convert screen position to note position by unscaling
+        const scaleFactor = this.pianoRoll.gridWidth / this.pianoRoll.baseGridWidth;
+        const unscaledX = PIANO_KEY_WIDTH + (x - PIANO_KEY_WIDTH) / scaleFactor;
+        
+        const snappedX = this.pianoRoll.gridSnap ? this.pianoRoll.snapXToGrid(unscaledX) + PIANO_KEY_WIDTH : unscaledX;
         const noteData = {
             x: snappedX,
             y: (NUM_OCTAVES * NOTES_PER_OCTAVE - 1 - key) * NOTE_HEIGHT,
@@ -320,12 +336,17 @@ export class InputHandler {
     handleNoteCreation(x, y) {
         if (!this.dragNote) return;
         
+        // Convert screen position to note position by unscaling
+        const scaleFactor = this.pianoRoll.gridWidth / this.pianoRoll.baseGridWidth;
+        const unscaledX = PIANO_KEY_WIDTH + (x - PIANO_KEY_WIDTH) / scaleFactor;
+        
         // Extend note width based on current position
-        const newWidth = x - this.dragNote.x;
+        const newWidth = unscaledX - this.dragNote.x;
         if (newWidth > 0) {
             if (this.pianoRoll.gridSnap) {
                 // Snap the end position to grid
-                const subdivisionWidth = GRID_WIDTH / GRID_SUBDIVISIONS;
+                const snapDivisions = this.pianoRoll.getSnapDivisions();
+                const subdivisionWidth = this.pianoRoll.baseGridWidth * BEATS_PER_MEASURE / snapDivisions;
                 const snappedWidth = Math.ceil(newWidth / subdivisionWidth) * subdivisionWidth;
                 this.dragNote.width = Math.max(subdivisionWidth, snappedWidth);
             } else {
@@ -376,7 +397,8 @@ export class InputHandler {
     handleResize(x, y) {
         if (!this.dragNote) return;
         
-        const subdivisionWidth = GRID_WIDTH / GRID_SUBDIVISIONS;
+        const snapDivisions = this.pianoRoll.getSnapDivisions();
+        const subdivisionWidth = GRID_WIDTH * BEATS_PER_MEASURE / snapDivisions;
         const minWidth = subdivisionWidth;
         
         if (this.pianoRoll.noteManager.selectedNotes.has(this.dragNote)) {
@@ -430,8 +452,12 @@ export class InputHandler {
     handleDrag(x, y) {
         if (!this.dragNote) return;
         
+        // Convert screen position to note space
+        const scaleFactor = this.pianoRoll.gridWidth / this.pianoRoll.baseGridWidth;
+        
         // Calculate the target position (where the mouse is minus the offset within the note)
-        const targetX = x - this.dragStartX;
+        const targetScreenX = x - this.dragStartX;
+        const targetX = PIANO_KEY_WIDTH + (targetScreenX - PIANO_KEY_WIDTH) / scaleFactor;
         const targetY = y - this.dragStartY;
         
         // Ensure originalPositions exists
@@ -462,7 +488,8 @@ export class InputHandler {
                 
                 // Apply grid snap if enabled
                 if (this.pianoRoll.gridSnap) {
-                    const subdivisionWidth = GRID_WIDTH / GRID_SUBDIVISIONS;
+                    const snapDivisions = this.pianoRoll.getSnapDivisions();
+                    const subdivisionWidth = GRID_WIDTH * BEATS_PER_MEASURE / snapDivisions;
                     newX = Math.round((newX - PIANO_KEY_WIDTH) / subdivisionWidth) * 
                            subdivisionWidth + PIANO_KEY_WIDTH;
                 }
@@ -511,7 +538,8 @@ export class InputHandler {
         this.selectionBox.y2 = y;
         
         // Update selected notes
-        this.pianoRoll.noteManager.selectNotesInRegion(this.selectionBox, this.shiftKeyHeld);
+        const scaleFactor = this.pianoRoll.gridWidth / this.pianoRoll.baseGridWidth;
+        this.pianoRoll.noteManager.selectNotesInRegion(this.selectionBox, this.shiftKeyHeld, scaleFactor);
         this.pianoRoll.emit('selectionChanged');
         this.pianoRoll.dirty = true;
     }
@@ -567,7 +595,8 @@ export class InputHandler {
         // Handle selection boxes
         if (this.isSelecting || this.isDeleteSelecting) {
             if (this.isDeleteSelecting && this.selectionBox) {
-                this.pianoRoll.noteManager.deleteNotesInRegion(this.selectionBox);
+                const scaleFactor = this.pianoRoll.gridWidth / this.pianoRoll.baseGridWidth;
+                this.pianoRoll.noteManager.deleteNotesInRegion(this.selectionBox, scaleFactor);
                 this.pianoRoll.emit('notesChanged');
             }
             this.selectionBox = null;
@@ -1009,16 +1038,31 @@ export class InputHandler {
      * Handle MIDI Note On
      */
     handleMIDINoteOn(midiNote, velocity) {
-        // Convert MIDI note to 72-EDO key number
-        // MIDI uses 12-EDO, we use 72-EDO (6 steps per semitone)
-        // MIDI note 60 = Middle C = C4
-        // In our 72-EDO system with 8 octaves, C4 should be in the middle
-        // Total keys = 576 (8 octaves × 72 notes)
-        // C4 should be at octave 4, position 0 = key 288 (4 × 72)
+        // Convert MIDI note to 38-EDO key number
+        // Import the 12-tone to 38 EDO mapping
+        const TWELVE_TO_38_EDO_MAP = {
+            0: 0,   // C
+            1: 3,   // C#
+            2: 6,   // D
+            3: 9,   // D#
+            4: 12,  // E
+            5: 15,  // F
+            6: 18,  // F#
+            7: 22,  // G
+            8: 25,  // G#
+            9: 28,  // A
+            10: 31, // A#
+            11: 34  // B
+        };
         
+        // MIDI note 60 = Middle C = C4
         const midiC4 = 60;
-        const c4KeyNumber = 4 * NOTES_PER_OCTAVE; // 288
-        const keyNumber = c4KeyNumber + (midiNote - midiC4) * 6;
+        const octaveShift = Math.floor((midiNote - midiC4) / 12);
+        const noteInOctave = (midiNote % 12 + 12) % 12; // Ensure positive
+        
+        // C4 should be at key 152 (same as before), which is octave 4 in the old system
+        const c4KeyNumber = 4 * NOTES_PER_OCTAVE; // 152 (4 × 38)
+        const keyNumber = c4KeyNumber + octaveShift * NOTES_PER_OCTAVE + TWELVE_TO_38_EDO_MAP[noteInOctave];
         
         // Check if key is within valid range (0-575)
         if (keyNumber < 0 || keyNumber >= NUM_OCTAVES * NOTES_PER_OCTAVE) {
@@ -1027,6 +1071,9 @@ export class InputHandler {
         
         // Play the note
         this.pianoRoll.playPianoKey(keyNumber, velocity);
+        
+        // Debug: Log the mapping
+        console.log(`MIDI ${midiNote} (${this.getMidiNoteName(midiNote)}) -> 38EDO key ${keyNumber}, position in octave: ${keyNumber % NOTES_PER_OCTAVE}`);
         
         // Store the mapping (allow multiple notes)
         if (!this.midiNoteMap.has(midiNote)) {
@@ -1042,6 +1089,47 @@ export class InputHandler {
         if (this.pianoRoll.renderer) {
             this.pianoRoll.renderer.pianoKeysCacheInvalid = true;
         }
+    }
+    
+    /**
+     * Snap key to nearest 12-tone position
+     */
+    snapToNearest12Tone(key) {
+        const exactPositions = [0, 3, 6, 9, 12, 15, 18, 22, 25, 28, 31, 34]; // C, C#, D, D#, E, F, F#, G, G#, A, A#, B
+        const octave = Math.floor(key / NOTES_PER_OCTAVE);
+        const positionInOctave = key % NOTES_PER_OCTAVE;
+        
+        // Find the nearest exact position
+        let nearestPosition = exactPositions[0];
+        let minDistance = Math.abs(positionInOctave - exactPositions[0]);
+        
+        for (const pos of exactPositions) {
+            const distance = Math.abs(positionInOctave - pos);
+            if (distance < minDistance) {
+                minDistance = distance;
+                nearestPosition = pos;
+            }
+        }
+        
+        // Handle wrap-around at octave boundary
+        if (positionInOctave > 35) {
+            const distanceToNextC = 38 - positionInOctave;
+            if (distanceToNextC < minDistance) {
+                return (octave + 1) * NOTES_PER_OCTAVE;
+            }
+        }
+        
+        return octave * NOTES_PER_OCTAVE + nearestPosition;
+    }
+    
+    /**
+     * Get MIDI note name for debugging
+     */
+    getMidiNoteName(midiNote) {
+        const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+        const octave = Math.floor(midiNote / 12) - 1;
+        const noteName = noteNames[midiNote % 12];
+        return `${noteName}${octave}`;
     }
     
     /**

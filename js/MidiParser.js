@@ -516,9 +516,9 @@ export class MidiParser {
                 if (noteStart) {
                         const duration = event.time - noteStart.startTime;
                         
-                        // Convert MIDI note to 72-EDO with optional octave shift
+                        // Convert MIDI note to 38-EDO with optional octave shift
                         const shiftedMidiNote = noteStart.midiNote + (octaveShift * 12);
-                        const key72 = this.midiNoteTo72edo(shiftedMidiNote);
+                        const key38 = this.midiNoteTo38edo(shiftedMidiNote);
                         
                         // Calculate positions using pre-calculated pixelsPerTick
                         // Normalize times by subtracting minTime to start at measure 0
@@ -545,7 +545,7 @@ export class MidiParser {
                         }
                         const width = endX - x;
                         
-                        const y = (NUM_OCTAVES * NOTES_PER_OCTAVE - 1 - key72) * NOTE_HEIGHT;
+                        const y = (NUM_OCTAVES * NOTES_PER_OCTAVE - 1 - key38) * NOTE_HEIGHT;
                         
                         // Map MIDI velocity (0-127) to our velocity
                         let velocity = Math.round((noteStart.velocity / 127) * 127);
@@ -614,7 +614,7 @@ export class MidiParser {
                             y,
                             width,
                             height: NOTE_HEIGHT,
-                            key: key72,
+                            key: key38,
                             velocity,
                             pan,
                             instrument,
@@ -643,9 +643,9 @@ export class MidiParser {
             activeNotes.forEach((noteStart, key) => {
                 const endTime = noteStart.startTime + defaultDuration;
                 
-                // Convert MIDI note to 72-EDO with optional octave shift
+                // Convert MIDI note to 38-EDO with optional octave shift
                 const shiftedMidiNote = noteStart.midiNote + (octaveShift * 12);
-                const key72 = this.midiNoteTo72edo(shiftedMidiNote);
+                const key38 = this.midiNoteTo38edo(shiftedMidiNote);
                 
                 // Calculate positions - don't normalize, preserve actual timing
                 const normalizedStartTime = noteStart.startTime;
@@ -663,14 +663,14 @@ export class MidiParser {
                 const endX = this.snapToGrid(rawEndX);
                 const width = Math.max(GRID_WIDTH / GRID_SUBDIVISIONS, endX - x);
                 
-                const y = (NUM_OCTAVES * NOTES_PER_OCTAVE - 1 - key72) * NOTE_HEIGHT;
+                const y = (NUM_OCTAVES * NOTES_PER_OCTAVE - 1 - key38) * NOTE_HEIGHT;
                 
                 notes.push({
                     x,
                     y,
                     width,
                     height: NOTE_HEIGHT,
-                    key: key72,
+                    key: key38,
                     velocity: noteStart.velocity,
                     pan: 0,
                     instrument: noteStart.channel === 9 ? 'ORG_D00' : 
@@ -720,11 +720,11 @@ export class MidiParser {
     }
     
     /**
-     * Convert MIDI note number to 72-EDO key
+     * Convert MIDI note number to 38-EDO key
      */
-    static midiNoteTo72edo(midiNote) {
+    static midiNoteTo38edo(midiNote) {
         // MIDI note 60 = C4 (middle C)
-        // In our 72-EDO system with 8 octaves (0-7):
+        // In our 38-EDO system with 8 octaves (0-7):
         // - Octave 0 = MIDI notes 12-23 (C0-B0)
         // - Octave 1 = MIDI notes 24-35 (C1-B1)
         // - Octave 2 = MIDI notes 36-47 (C2-B2)
@@ -734,7 +734,26 @@ export class MidiParser {
         // - Octave 6 = MIDI notes 84-95 (C6-B6)
         // - Octave 7 = MIDI notes 96-107 (C7-B7)
         
+        // Import the mapping from constants
+        const TWELVE_TO_38_EDO_MAP = {
+            0: 0,   // C
+            1: 3,   // C#
+            2: 6,   // D
+            3: 9,   // D#
+            4: 12,  // E
+            5: 15,  // F
+            6: 18,  // F#
+            7: 22,  // G
+            8: 25,  // G#
+            9: 28,  // A
+            10: 31, // A#
+            11: 34  // B
+        };
+        
+        const noteInOctave = midiNote % 12;
+        
         // Map MIDI note to our octave system
+        // Use C-based octaves since the frequency calculation handles the shift
         let octave;
         if (midiNote < 12) {
             octave = 0; // Notes below C0 map to octave 0
@@ -744,14 +763,12 @@ export class MidiParser {
             octave = Math.floor((midiNote - 12) / 12);
         }
         
-        const noteInOctave = midiNote % 12;
+        // Use the 12-tone to 38 EDO mapping
+        const key38 = octave * NOTES_PER_OCTAVE + TWELVE_TO_38_EDO_MAP[noteInOctave];
         
-        // Each semitone = 6 steps in 72-EDO
-        const key72 = octave * NOTES_PER_OCTAVE + noteInOctave * NOTES_PER_SEMITONE;
-        
-        // Clamp the final key to valid piano range (0-575)
+        // Clamp the final key to valid piano range
         const maxKey = NUM_OCTAVES * NOTES_PER_OCTAVE - 1;
-        return Math.max(0, Math.min(maxKey, key72));
+        return Math.max(0, Math.min(maxKey, key38));
     }
     
     /**

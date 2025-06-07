@@ -17,9 +17,9 @@ let currentFilename = null;
 // Update page title based on current file
 function updatePageTitle() {
     if (currentFilename) {
-        document.title = `${currentFilename} - that72.org`;
+        document.title = `${currentFilename} - that38.org`;
     } else {
-        document.title = 'that72.org - 72-EDO Composition Tool';
+        document.title = 'that38.org - 38-EDO Composition Tool';
     }
 }
 
@@ -108,6 +108,16 @@ function setupControls() {
         loopBtn.classList.toggle('active', pianoRoll.loopEnabled);
     });
     
+    // Snap mode button
+    const snapModeBtn = document.getElementById('snapModeBtn');
+    snapModeBtn.addEventListener('click', () => {
+        pianoRoll.toggleSnapMode();
+        const isHighRes = pianoRoll.snapMode === 'high-res';
+        snapModeBtn.classList.toggle('high-res', isHighRes);
+        snapModeBtn.querySelector('span').textContent = isHighRes ? 'Snap: Fine' : 'Snap: Normal';
+        modalManager.notify(`Snap mode: ${isHighRes ? 'Fine (64 divisions)' : 'Normal (16 divisions)'}`, 'info');
+    });
+    
     
     // Loop range inputs
     const loopStartInput = document.getElementById('loopStartInput');
@@ -163,6 +173,7 @@ function setupModals() {
     modalManager.register('confirmModal');
     modalManager.register('saveAsModal');
     modalManager.register('trackInfoModal');
+    modalManager.register('tuningHelpModal');
 }
 
 /**
@@ -339,6 +350,16 @@ function setupSongMenuItems() {
             }
         });
     });
+    
+    // Tuning help link
+    const tuningHelpLink = document.getElementById('menu-tuning-help');
+    if (tuningHelpLink) {
+        tuningHelpLink.addEventListener('click', (e) => {
+            e.stopPropagation();
+            menuManager.closeAll();
+            modalManager.show('tuningHelpModal');
+        });
+    }
 }
 
 /**
@@ -371,8 +392,8 @@ async function handleImportOrg() {
             try {
                 const buffer = await file.arrayBuffer();
                 await pianoRoll.loadOrgFile(buffer);
-                // Convert to .o72.json extension for saving
-                currentFilename = file.name.replace(/\.org$/i, '.o72.json');
+                // Convert to .o38.json extension for saving
+                currentFilename = file.name.replace(/\.org$/i, '.o38.json');
                 updatePageTitle();
                 modalManager.notify(`Loaded: ${file.name}`, 'info');
             } catch (error) {
@@ -395,8 +416,8 @@ async function handleImportMidi() {
             try {
                 const buffer = await file.arrayBuffer();
                 await pianoRoll.loadMidiFile(buffer);
-                // Convert to .o72.json extension for saving
-                currentFilename = file.name.replace(/\.(mid|midi)$/i, '.o72.json');
+                // Convert to .o38.json extension for saving
+                currentFilename = file.name.replace(/\.(mid|midi)$/i, '.o38.json');
                 updatePageTitle();
                 modalManager.notify(`Loaded: ${file.name}`, 'info');
             } catch (error) {
@@ -594,14 +615,14 @@ function showShortcuts() {
 function showAbout() {
     const about = `
 <div class="about-container">
-    <h2 style="margin-top: 0; color: #4a9eff;">that72.org</h2>
-    <p style="color: #ccc; margin-bottom: 20px;">72-EDO Microtonal Sequencer</p>
+    <h2 style="margin-top: 0; color: #4a9eff;">that38.org</h2>
+    <p style="color: #ccc; margin-bottom: 20px;">38-EDO Microtonal Sequencer</p>
     
-    <p>A piano roll sequencer with 72 equal divisions per octave (16.67 cents per step) for xenharmonic music.</p>
+    <p>A piano roll sequencer with 38 equal divisions per octave (31.58 cents per step) for xenharmonic music.</p>
     
     <h3>Features</h3>
     <ul style="list-style: none; padding: 0;">
-        <li>• 8 octaves of 72-EDO tuning</li>
+        <li>• 8 octaves of 38-EDO tuning</li>
         <li>• Import .org and .mid files</li>
         <li>• 100 wavetable instruments + 6 drums</li>
         <li>• Per-note velocity and pan</li>
@@ -636,7 +657,7 @@ function handleSave() {
  */
 function handleSaveAs() {
     const input = document.getElementById('saveAsFilename');
-    input.value = currentFilename || 'song.o72.json';
+    input.value = currentFilename || 'song.o38.json';
     
     // Set up event handlers
     const modal = document.getElementById('saveAsModal');
@@ -653,8 +674,8 @@ function handleSaveAs() {
     const handleConfirm = () => {
         let filename = input.value.trim();
         if (filename) {
-            if (!filename.endsWith('.o72.json')) {
-                filename += '.o72.json';
+            if (!filename.endsWith('.o38.json')) {
+                filename += '.o38.json';
             }
             currentFilename = filename;
             updatePageTitle();
@@ -710,7 +731,7 @@ function downloadSong(filename) {
 function handleOpen() {
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = '.o72.json,.json';
+    input.accept = '.o38.json,.json';
     
     input.onchange = async (e) => {
         const file = e.target.files[0];
@@ -746,8 +767,8 @@ async function loadOrgFromPath(path) {
         await pianoRoll.loadOrgFile(buffer);
         
         const filename = path.split('/').pop();
-        // Convert to .o72.json extension for saving
-        currentFilename = filename.replace(/\.org$/i, '.o72.json');
+        // Convert to .o38.json extension for saving
+        currentFilename = filename.replace(/\.org$/i, '.o38.json');
         updatePageTitle();
         modalManager.notify(`Loaded: ${filename}`, 'info');
     } catch (error) {
@@ -771,8 +792,8 @@ async function loadMidiFromPath(path) {
         await pianoRoll.loadMidiFile(buffer);
         
         const filename = path.split('/').pop();
-        // Convert to .o72.json extension for saving
-        currentFilename = filename.replace(/\.(mid|midi)$/i, '.o72.json');
+        // Convert to .o38.json extension for saving
+        currentFilename = filename.replace(/\.(mid|midi)$/i, '.o38.json');
         updatePageTitle();
         modalManager.notify(`Loaded: ${filename}`, 'info');
     } catch (error) {
@@ -834,6 +855,8 @@ async function showSongDirectory(basePath, isMidi = false) {
         if (modalTitle) {
             if (isMidi) {
                 modalTitle.textContent = 'Classical Music';
+            } else if (basePath.includes('keroblaster')) {
+                modalTitle.textContent = 'Kero Blaster Songs';
             } else if (basePath.includes('allbeta')) {
                 modalTitle.textContent = 'Cave Story Beta Songs';
             } else {

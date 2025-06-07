@@ -246,7 +246,7 @@ export class OrgParser {
             if (event.key !== 255) {
                 // New note starts
                 const x = PIANO_KEY_WIDTH + (event.position * pixelsPerTick);
-                const key72 = this.convertKeyTo72edo(event.key);
+                const key72 = this.convertKeyTo38edo(event.key);
                 const y = (NUM_OCTAVES * NOTES_PER_OCTAVE - 1 - key72) * NOTE_HEIGHT;
                 // For very short notes, use the actual length without minimum
                 // This preserves the staccato/gating effect
@@ -329,19 +329,33 @@ export class OrgParser {
     }
     
     /**
-     * Convert ORG key (0-95) to 72edo key
+     * Convert ORG key (0-95) to 38edo key
      */
-    static convertKeyTo72edo(orgKey) {
+    static convertKeyTo38edo(orgKey) {
         if (orgKey > ORG_MAX_KEY) return 0;
         
+        // Import the mapping from constants
+        const TWELVE_TO_38_EDO_MAP = {
+            0: 0,   // C
+            1: 3,   // C#
+            2: 6,   // D
+            3: 9,   // D#
+            4: 12,  // E
+            5: 15,  // F
+            6: 18,  // F#
+            7: 22,  // G
+            8: 25,  // G#
+            9: 28,  // A
+            10: 31, // A#
+            11: 34  // B
+        };
+        
         // ORG uses standard 12-TET keys
-        // Map to nearest 72edo equivalent
         const octave = Math.floor(orgKey / 12);
         const noteInOctave = orgKey % 12;
         
-        // Each semitone in 72edo = 6 steps
-        // Place notes on exact semitone positions
-        return octave * NOTES_PER_OCTAVE + noteInOctave * NOTES_PER_SEMITONE;
+        // Use the 12-tone to 38 EDO mapping
+        return octave * NOTES_PER_OCTAVE + TWELVE_TO_38_EDO_MAP[noteInOctave];
     }
 
     /**
@@ -396,7 +410,7 @@ export class OrgParser {
             // Convert notes to ORG format
             const orgNotes = trackNotes.map(note => ({
                 position: Math.round((note.x - PIANO_KEY_WIDTH) / (GRID_WIDTH / 4)),
-                key: this.convert72edoToOrgKey(note.key),
+                key: this.convert38edoToOrgKey(note.key),
                 length: Math.round(note.width / (GRID_WIDTH / 4)),
                 volume: Math.min(254, note.velocity * 2),
                 pan: Math.round(note.pan * 6 / 100 + 6)
@@ -503,12 +517,42 @@ export class OrgParser {
     }
 
     /**
-     * Convert 72edo key to ORG key
+     * Convert 38edo key to ORG key
      */
-    static convert72edoToOrgKey(key72) {
-        // Get nearest semitone
-        const semitone = Math.round(key72 / NOTES_PER_SEMITONE);
-        return Math.min(ORG_MAX_KEY, Math.max(0, semitone));
+    static convert38edoToOrgKey(key38) {
+        // Reverse mapping from 38 EDO to 12-tone
+        const THIRTY_EIGHT_TO_TWELVE_MAP = {
+            0: 0,   // C
+            3: 1,   // C#
+            6: 2,   // D
+            9: 3,   // D#
+            12: 4,  // E
+            15: 5,  // F
+            18: 6,  // F#
+            22: 7,  // G
+            25: 8,  // G#
+            28: 9,  // A
+            31: 10, // A#
+            34: 11  // B
+        };
+        
+        const octave = Math.floor(key38 / NOTES_PER_OCTAVE);
+        const positionInOctave = key38 % NOTES_PER_OCTAVE;
+        
+        // Find the closest 12-tone note
+        let closestNote = 0;
+        let minDistance = Math.abs(positionInOctave - 0);
+        
+        for (const [edo38, note12] of Object.entries(THIRTY_EIGHT_TO_TWELVE_MAP)) {
+            const distance = Math.abs(positionInOctave - parseInt(edo38));
+            if (distance < minDistance) {
+                minDistance = distance;
+                closestNote = note12;
+            }
+        }
+        
+        const orgKey = octave * 12 + closestNote;
+        return Math.min(ORG_MAX_KEY, Math.max(0, orgKey));
     }
 
     /**

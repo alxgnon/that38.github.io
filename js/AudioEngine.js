@@ -217,11 +217,11 @@ export class AudioEngine {
     }
 
     /**
-     * Calculate frequency for a given key in 72 EDO
+     * Calculate frequency for a given key in 38 EDO
      * @param {number} keyNumber - Key number
      */
     getFrequency(keyNumber) {
-        const middleAKey = 4 * NOTES_PER_OCTAVE + 54; // A4
+        const middleAKey = 4 * NOTES_PER_OCTAVE + 28; // A4 in 38 EDO (meantone mapping)
         const stepsFromA4 = keyNumber - middleAKey;
         const octaveOffset = stepsFromA4 / NOTES_PER_OCTAVE;
         return BASE_FREQUENCY * Math.pow(2, octaveOffset);
@@ -439,7 +439,7 @@ export class AudioEngine {
      * Calculate playback rate for drum
      */
     calculateDrumPlaybackRate(keyNumber) {
-        const drumKey = Math.round(keyNumber / 6);
+        const drumKey = Math.round(keyNumber / 3.17); // Adjusted for 38 EDO
         const clampedKey = Math.max(0, Math.min(255, drumKey));
         const drumFreq = clampedKey * 800 + 100;
         return drumFreq / BASE_SAMPLE_RATE;
@@ -453,31 +453,50 @@ export class AudioEngine {
         const BASE_POINT_FREQS = [33408, 35584, 37632, 39808, 42112, 44672, 47488, 50048, 52992, 56320, 59648, 63232];
         const PERIOD_SIZES = [1024, 512, 256, 128, 64, 32, 16, 8];
         
-        // Convert 72-EDO to octave and pitch class with microtonal precision
+        // Convert 38-EDO to octave and position within octave
         const octave = Math.floor(keyNumber / NOTES_PER_OCTAVE);
-        const microtonalPosition = keyNumber % NOTES_PER_OCTAVE;
+        const positionInOctave = keyNumber % NOTES_PER_OCTAVE;
         
-        // Get the exact semitone position within the octave (0-12 with fractions)
-        const exactSemitone = microtonalPosition / 6;
-        const baseSemitone = Math.floor(exactSemitone);
-        const microtonalFraction = exactSemitone - baseSemitone;
+        // For 38 EDO, each step is 1200/38 = 31.58 cents
+        // Find the closest 12-tone pitch class
+        let closestPitchClass = 0;
+        let microtonalOffset = 0;
         
-        // Get the base pitch class (0-11)
-        const pitchClass = baseSemitone % 12;
+        // Find which 12-tone note this 38-EDO step is closest to
+        for (let pc = 0; pc < 12; pc++) {
+            const targetPosition = Math.round((pc * 38) / 12);
+            if (positionInOctave === targetPosition) {
+                closestPitchClass = pc;
+                microtonalOffset = 0;
+                break;
+            } else if (positionInOctave < targetPosition) {
+                // Between previous and current pitch class
+                const prevPosition = pc > 0 ? Math.round(((pc - 1) * 38) / 12) : 0;
+                const distToPrev = positionInOctave - prevPosition;
+                const distBetween = targetPosition - prevPosition;
+                closestPitchClass = pc - 1;
+                microtonalOffset = distToPrev / distBetween;
+                break;
+            } else if (pc === 11) {
+                // Past the last pitch class
+                closestPitchClass = 11;
+                const lastPosition = Math.round((11 * 38) / 12);
+                microtonalOffset = (positionInOctave - lastPosition) / (38 - lastPosition);
+            }
+        }
         
         // Clamp octave to valid range
         const clampedOctave = Math.max(0, Math.min(7, octave));
         
         // Get base frequency for this pitch class
-        const baseFreq = BASE_POINT_FREQS[pitchClass];
+        const baseFreq = BASE_POINT_FREQS[closestPitchClass];
         
         // For microtonal interpolation, use exponential interpolation
         // Frequency ratios in equal temperament are exponential, not linear
         let frequencyMultiplier = 1;
-        if (microtonalFraction > 0) {
+        if (microtonalOffset > 0) {
             // Each semitone is a ratio of 2^(1/12)
-            // So each microtone (1/6 of a semitone) is 2^(1/72)
-            frequencyMultiplier = Math.pow(2, microtonalFraction / 12);
+            frequencyMultiplier = Math.pow(2, microtonalOffset / 12);
         }
         
         // Apply frequency adjustment and microtonal multiplier

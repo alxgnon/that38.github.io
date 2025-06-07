@@ -246,12 +246,12 @@ export class PlaybackEngine {
     }
     
     /**
-     * Set track visibility
+     * Set track mute state
      * @param {string} trackName - Instrument/track name
-     * @param {boolean} visible - Whether track is visible
+     * @param {boolean} muted - Whether track is muted
      */
-    setTrackVisibility(trackName, visible) {
-        this.trackVisibility.set(trackName, visible);
+    setTrackMute(trackName, muted) {
+        this.trackVisibility.set(trackName, !muted);
     }
     
     /**

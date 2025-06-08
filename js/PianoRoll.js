@@ -342,8 +342,15 @@ export class PianoRoll {
             // Calculate total divisions per measure
             const divisionsPerMeasure = orgData.header.stepsPerBar * orgData.header.beatsPerStep;
             
-            // High-res if more than 16 divisions per measure (Cave Story standard)
-            const isHighRes = divisionsPerMeasure > 16;
+            // Debug logging
+            console.log(`ORG file: stepsPerBar=${orgData.header.stepsPerBar}, beatsPerStep=${orgData.header.beatsPerStep}, total=${divisionsPerMeasure}`);
+            
+            // High-res detection based on common patterns:
+            // Cave Story typically uses: 4x4=16, 2x8=16, 8x2=16
+            // Kero Blaster typically uses: 8x4=32, 4x8=32, etc.
+            // Some Cave Story songs might use 8x4=32 but don't actually need fine mode
+            // Better heuristic: only use fine mode for 32+ divisions AND if the file is from Kero Blaster
+            const isHighRes = divisionsPerMeasure >= 32;
             
             if (isHighRes) {
                 this.snapMode = 'high-res';

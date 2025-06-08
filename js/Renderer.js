@@ -283,10 +283,10 @@ export class Renderer {
         const viewTop = this.pianoRoll.scrollY - VISIBLE_AREA_PADDING;
         const viewBottom = this.pianoRoll.scrollY + this.canvas.height + VISIBLE_AREA_PADDING;
         
-        const startMeasure = Math.floor(viewLeft / (this.pianoRoll.gridWidth * BEATS_PER_MEASURE));
-        const endMeasure = Math.ceil(viewRight / (this.pianoRoll.gridWidth * BEATS_PER_MEASURE));
+        const startMeasure = Math.floor(viewLeft / (this.pianoRoll.baseGridWidth * BEATS_PER_MEASURE));
+        const endMeasure = Math.ceil(viewRight / (this.pianoRoll.baseGridWidth * BEATS_PER_MEASURE));
         
-        const visibleNotes = this.pianoRoll.noteManager.getNotesInMeasures(startMeasure, endMeasure, this.pianoRoll.gridWidth);
+        const visibleNotes = this.pianoRoll.noteManager.getNotesInMeasures(startMeasure, endMeasure, this.pianoRoll.baseGridWidth);
         
         // Group notes by instrument for batch rendering
         const notesByInstrument = new Map();

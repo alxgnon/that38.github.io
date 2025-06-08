@@ -29,6 +29,7 @@ export class PianoRoll {
         
         // Initialize components
         this.noteManager = new NoteManager();
+        this.noteManager.pianoRoll = this;
         
         // Initialize playback engine
         this.playbackEngine = new PlaybackEngine({

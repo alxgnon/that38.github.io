@@ -200,6 +200,11 @@ export class InputHandler {
      * Handle note click
      */
     handleNoteClick(note, x, y, e) {
+        // Don't allow editing notes from muted tracks
+        if (this.pianoRoll.trackVisibility.get(note.instrument) === false) {
+            return;
+        }
+        
         const isNoteSelected = this.pianoRoll.noteManager.selectedNotes.has(note);
         
         if (e.shiftKey) {

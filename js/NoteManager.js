@@ -77,7 +77,12 @@ export class NoteManager {
         }
         
         const notesInRegion = this.getNotesInRegion(bounds, scaleFactor);
-        notesInRegion.forEach(note => this.selectedNotes.add(note));
+        notesInRegion.forEach(note => {
+            // Don't select notes from muted tracks
+            if (this.pianoRoll && this.pianoRoll.trackVisibility.get(note.instrument) !== false) {
+                this.selectedNotes.add(note);
+            }
+        });
     }
 
     /**
@@ -113,6 +118,12 @@ export class NoteManager {
         // Search in reverse order (top notes first)
         for (let i = this.notes.length - 1; i >= 0; i--) {
             const note = this.notes[i];
+            
+            // Skip notes from muted tracks
+            if (this.pianoRoll && this.pianoRoll.trackVisibility.get(note.instrument) === false) {
+                continue;
+            }
+            
             // Scale note position for comparison
             const scaledX = PIANO_KEY_WIDTH + (note.x - PIANO_KEY_WIDTH) * scaleFactor;
             const scaledWidth = note.width * scaleFactor;
@@ -298,7 +309,12 @@ export class NoteManager {
      */
     selectAll() {
         this.selectedNotes.clear();
-        this.notes.forEach(note => this.selectedNotes.add(note));
+        this.notes.forEach(note => {
+            // Don't select notes from muted tracks
+            if (this.pianoRoll && this.pianoRoll.trackVisibility.get(note.instrument) !== false) {
+                this.selectedNotes.add(note);
+            }
+        });
     }
 
     /**

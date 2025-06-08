@@ -283,8 +283,15 @@ export class Renderer {
         const viewTop = this.pianoRoll.scrollY - VISIBLE_AREA_PADDING;
         const viewBottom = this.pianoRoll.scrollY + this.canvas.height + VISIBLE_AREA_PADDING;
         
-        const startMeasure = Math.floor(viewLeft / (this.pianoRoll.baseGridWidth * BEATS_PER_MEASURE));
-        const endMeasure = Math.ceil(viewRight / (this.pianoRoll.baseGridWidth * BEATS_PER_MEASURE));
+        // Notes are stored with base grid positions, so we need to convert view bounds back to base coordinates
+        const scaleFactor = this.pianoRoll.gridWidth / this.pianoRoll.baseGridWidth;
+        
+        // Convert screen coordinates to base grid coordinates
+        const baseViewLeft = PIANO_KEY_WIDTH + (viewLeft - PIANO_KEY_WIDTH) / scaleFactor;
+        const baseViewRight = PIANO_KEY_WIDTH + (viewRight - PIANO_KEY_WIDTH) / scaleFactor;
+        
+        const startMeasure = Math.floor((baseViewLeft - PIANO_KEY_WIDTH) / (this.pianoRoll.baseGridWidth * BEATS_PER_MEASURE));
+        const endMeasure = Math.ceil((baseViewRight - PIANO_KEY_WIDTH) / (this.pianoRoll.baseGridWidth * BEATS_PER_MEASURE));
         
         const visibleNotes = this.pianoRoll.noteManager.getNotesInMeasures(startMeasure, endMeasure, this.pianoRoll.baseGridWidth);
         
@@ -318,9 +325,6 @@ export class Renderer {
             });
             
             const instrumentColor = this.pianoRoll.getInstrumentColor(instrument);
-            
-            // Scale factor for rendering
-            const scaleFactor = this.pianoRoll.gridWidth / this.pianoRoll.baseGridWidth;
             
             // Draw all note bodies of this instrument first
             this.ctx.fillStyle = instrumentColor.note;
@@ -453,7 +457,6 @@ export class Renderer {
         }
         
         // Draw selected notes on top
-        const scaleFactor = this.pianoRoll.gridWidth / this.pianoRoll.baseGridWidth;
         for (const note of this.pianoRoll.noteManager.selectedNotes) {
             // Skip if track is hidden
             if (this.pianoRoll.trackVisibility.get(note.instrument) === false) {
